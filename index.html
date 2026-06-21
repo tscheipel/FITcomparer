@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fitness File Compare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="backdrop backdrop-a"></div>
+  <div class="backdrop backdrop-b"></div>
+
+  <main class="app-shell">
+    <section class="panel grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <p class="card-kicker">Datei 1</p>
+          </div>
+          <span class="badge badge-a" id="statusA">Noch nicht geladen</span>
+        </div>
+        <label class="file-drop">
+          <input type="file" id="fileA" accept=".gpx,.fit,.tcx,application/gpx+xml,application/octet-stream" hidden>
+          <span>Datei auswählen</span>
+          <small>GPX oder FIT</small>
+        </label>
+        <div class="file-progress">
+          <div class="file-progress-track"><div class="file-progress-bar" id="progressBarA"></div></div>
+          <div class="file-progress-meta"><span id="progressLabelA">Bereit</span><span id="progressValueA">0 %</span></div>
+        </div>
+        <div class="meta" id="metaA">Keine Datei gewählt.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <p class="card-kicker">Datei 2</p>
+          </div>
+          <span class="badge badge-b" id="statusB">Noch nicht geladen</span>
+        </div>
+        <label class="file-drop">
+          <input type="file" id="fileB" accept=".gpx,.fit,.tcx,application/gpx+xml,application/octet-stream" hidden>
+          <span>Datei auswählen</span>
+          <small>GPX oder FIT</small>
+        </label>
+        <div class="file-progress">
+          <div class="file-progress-track"><div class="file-progress-bar" id="progressBarB"></div></div>
+          <div class="file-progress-meta"><span id="progressLabelB">Bereit</span><span id="progressValueB">0 %</span></div>
+        </div>
+        <div class="meta" id="metaB">Keine Datei gewählt.</div>
+      </div>
+    </section>
+
+    <section class="panel controls-card">
+      <div class="control-row">
+        <div class="control-group">
+          <label for="offset">Start-Offset Datei 2</label>
+          <div class="inline-control">
+            <input id="offset" type="range" min="-600" max="600" step="1" value="0">
+            <input id="offsetText" class="offset-text" type="text" inputmode="text" autocomplete="off" spellcheck="false" value="00:00" aria-label="Start-Offset als mm:ss">
+          </div>
+          <p class="help-text">Positiv = Datei 2 startet später, negativ = früher.</p>
+        </div>
+
+        <div class="control-group">
+          <label>Playback</label>
+          <div class="playback-controls">
+            <button class="primary-button icon-button" id="playPause" aria-label="Play">▶</button>
+            <button class="secondary-button icon-button" id="resetPlayback" aria-label="Reset">↺</button>
+            <select id="speed">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+              <option value="10">10x</option>
+              <option value="20">20x</option>
+              <option value="50">50x</option>
+              <option value="100">100x</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="scrubber">
+        <input id="progress" type="range" min="0" max="100" value="0" step="0.1">
+        <div class="scrubber-labels">
+          <span id="currentTimeLabel">0:00</span>
+          <span id="durationLabel">0:00</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel map-card">
+      <div class="section-header">
+        <div>
+          <p class="card-kicker">Karte</p>
+        </div>
+        <div class="legend">
+          <span><i class="legend-dot a"></i> <span id="mapLabelA">Datei 1</span></span>
+          <span><i class="legend-dot b"></i> <span id="mapLabelB">Datei 2</span></span>
+        </div>
+      </div>
+      <div id="map"></div>
+    </section>
+
+    <section class="panel chart-card">
+      <div class="section-header">
+        <div>
+          <p class="card-kicker">Graph</p>
+        </div>
+        <div class="metric-switcher" id="metricSwitcher"></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="inspector-grid">
+        <article class="inspector-card">
+          <div class="inspector-head">
+            <div>
+              <p class="card-kicker">Aktueller Punkt</p>
+              <h3 id="currentPointTime">0:00</h3>
+            </div>
+            <span class="inspector-hint">Playhead</span>
+          </div>
+          <div class="track-value-grid" id="currentPointValues"></div>
+        </article>
+
+        <article class="inspector-card">
+          <div class="inspector-head">
+            <div>
+              <p class="card-kicker">Hover</p>
+              <h3 id="hoverPointTime">-</h3>
+            </div>
+            <span class="inspector-hint">Mausposition</span>
+          </div>
+          <div class="track-value-grid" id="hoverPointValues"></div>
+        </article>
+
+        <article class="inspector-card selection-card hidden" id="selectionPanel">
+          <div class="inspector-head">
+            <div>
+              <p class="card-kicker">Fenster</p>
+              <h3 id="selectionRange">-</h3>
+            </div>
+            <button class="selection-close" id="selectionClose" type="button" aria-label="Fenster schließen">×</button>
+          </div>
+          <div class="track-value-grid" id="selectionValues"></div>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
