@@ -1287,11 +1287,11 @@ function refreshDistanceSelectionInspector() {
 
   const metric = getActiveMetric();
   elements.distanceSelectionValues.innerHTML = [
-    formatValueRow(`${metric.label} ť Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, metric.key), metric.unit, 'value-a'),
-    formatValueRow(`${metric.label} ť Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, metric.key), metric.unit, 'value-b'),
+    formatValueRow(`${metric.label} Ø Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, metric.key), metric.unit, 'value-a'),
+    formatValueRow(`${metric.label} Ø Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, metric.key), metric.unit, 'value-b'),
     ...METRICS.flatMap((entry) => [
-      formatValueRow(`${entry.label} ť Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, entry.key), entry.unit, 'value-a'),
-      formatValueRow(`${entry.label} ť Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, entry.key), entry.unit, 'value-b'),
+      formatValueRow(`${entry.label} Ø Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, entry.key), entry.unit, 'value-a'),
+      formatValueRow(`${entry.label} Ø Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, entry.key), entry.unit, 'value-b'),
     ]),
     formatValueRow('Normalized Power Datei 1', calculateNormalizedPower(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'W', 'value-a'),
     formatValueRow('Normalized Power Datei 2', calculateNormalizedPower(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'W', 'value-b'),
