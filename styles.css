@@ -487,6 +487,24 @@ select {
   grid-column: 1 / -1;
 }
 
+.track-name {
+  width: min(100%, 360px);
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.track-name:focus {
+  outline: none;
+  border-color: rgba(77, 225, 193, 0.55);
+  box-shadow: 0 0 0 3px rgba(77, 225, 193, 0.15);
+}
+
 .selection-editor {
   display: grid;
   gap: 10px;
