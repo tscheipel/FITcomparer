@@ -150,6 +150,23 @@
             </div>
             <button class="selection-close" id="selectionClose" type="button" aria-label="Fenster schließen">×</button>
           </div>
+          <div class="selection-editor" aria-label="Fenster bearbeiten">
+            <div class="selection-editor-row">
+              <span class="selection-editor-label">Gesamtzeit</span>
+              <label><span>Anfang</span><input id="selectionTimeStart" type="text" inputmode="text" value="0:00"></label>
+              <label><span>Ende</span><input id="selectionTimeEnd" type="text" inputmode="text" value="0:00"></label>
+            </div>
+            <div class="selection-editor-row">
+              <span class="selection-editor-label value-a">Datei 1 (km)</span>
+              <label><span>Anfang</span><input id="selectionDistanceAStart" type="number" inputmode="decimal" min="0" step="0.01"></label>
+              <label><span>Ende</span><input id="selectionDistanceAEnd" type="number" inputmode="decimal" min="0" step="0.01"></label>
+            </div>
+            <div class="selection-editor-row">
+              <span class="selection-editor-label value-b">Datei 2 (km)</span>
+              <label><span>Anfang</span><input id="selectionDistanceBStart" type="number" inputmode="decimal" min="0" step="0.01"></label>
+              <label><span>Ende</span><input id="selectionDistanceBEnd" type="number" inputmode="decimal" min="0" step="0.01"></label>
+            </div>
+          </div>
           <div class="track-value-grid" id="selectionValues"></div>
         </article>
       </div>

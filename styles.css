@@ -487,6 +487,79 @@ select {
   grid-column: 1 / -1;
 }
 
+.selection-editor {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.selection-editor-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) repeat(2, minmax(110px, 160px));
+  gap: 10px;
+  align-items: end;
+}
+
+.selection-editor-label {
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.selection-editor-label.value-a {
+  color: #8df3df;
+}
+
+.selection-editor-label.value-b {
+  color: #c2d6ff;
+}
+
+.selection-editor label {
+  display: grid;
+  gap: 4px;
+}
+
+.selection-editor label span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.selection-editor input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  font-family: "Sora", sans-serif;
+}
+
+.selection-editor input:focus {
+  outline: none;
+  border-color: rgba(77, 225, 193, 0.55);
+  box-shadow: 0 0 0 3px rgba(77, 225, 193, 0.15);
+}
+
+.selection-editor input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 650px) {
+  .selection-editor-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .selection-editor-label {
+    grid-column: 1 / -1;
+  }
+}
+
 .selection-close {
   min-width: 34px;
   width: 34px;

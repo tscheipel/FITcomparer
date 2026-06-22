@@ -11,6 +11,7 @@ const METRICS = [
 
 const SPEED_MEDIAN_RADIUS_SECONDS = 5;
 const SPEED_AVERAGE_RADIUS_SECONDS = 5;
+const STOPPED_SPEED_THRESHOLD_KMH = 1;
 
 const state = {
   tracks: [null, null],
@@ -66,6 +67,12 @@ const elements = {
   selectionRange: document.getElementById('selectionRange'),
   selectionValues: document.getElementById('selectionValues'),
   selectionClose: document.getElementById('selectionClose'),
+  selectionTimeStart: document.getElementById('selectionTimeStart'),
+  selectionTimeEnd: document.getElementById('selectionTimeEnd'),
+  selectionDistanceAStart: document.getElementById('selectionDistanceAStart'),
+  selectionDistanceAEnd: document.getElementById('selectionDistanceAEnd'),
+  selectionDistanceBStart: document.getElementById('selectionDistanceBStart'),
+  selectionDistanceBEnd: document.getElementById('selectionDistanceBEnd'),
 };
 
 const METRIC_BUTTONS = new Map();
@@ -131,6 +138,27 @@ function bindEvents() {
     updateVisuals();
   });
   elements.selectionClose.addEventListener('click', clearSelectionWindow);
+  bindSelectionEditorEvents();
+}
+
+function bindSelectionEditorEvents() {
+  const editors = [
+    [elements.selectionTimeStart, 'start', null],
+    [elements.selectionTimeEnd, 'end', null],
+    [elements.selectionDistanceAStart, 'start', 0],
+    [elements.selectionDistanceAEnd, 'end', 0],
+    [elements.selectionDistanceBStart, 'start', 1],
+    [elements.selectionDistanceBEnd, 'end', 1],
+  ];
+
+  for (const [input, boundary, trackIndex] of editors) {
+    input.addEventListener('change', () => applySelectionEditorValue(input, boundary, trackIndex));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        input.blur();
+      }
+    });
+  }
 }
 
 function createMetricButtons() {
@@ -986,9 +1014,12 @@ function refreshSelectionInspector() {
   const averageB = averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, metric.key);
   const normalizedPowerA = calculateNormalizedPower(state.tracks[0], start + origin, end + origin);
   const normalizedPowerB = calculateNormalizedPower(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
+  const stoppedTimeA = calculateStoppedTime(state.tracks[0], start + origin, end + origin);
+  const stoppedTimeB = calculateStoppedTime(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
 
   elements.selectionPanel.classList.remove('hidden');
   elements.selectionRange.textContent = `${formatDuration(start)} - ${formatDuration(end)}`;
+  syncSelectionEditor(start, end);
   elements.selectionValues.innerHTML = [
     formatValueRow(`${metric.label} Ø Datei 1`, averageA, metric.unit, 'value-a'),
     formatValueRow(`${metric.label} Ø Datei 2`, averageB, metric.unit, 'value-b'),
@@ -998,7 +1029,111 @@ function refreshSelectionInspector() {
     ]),
     formatValueRow('Normalized Power Datei 1', normalizedPowerA, 'W', 'value-a'),
     formatValueRow('Normalized Power Datei 2', normalizedPowerB, 'W', 'value-b'),
+    formatDurationValueRow('Stehzeit Datei 1', stoppedTimeA, 'value-a'),
+    formatDurationValueRow('Stehzeit Datei 2', stoppedTimeB, 'value-b'),
   ].join('');
+}
+
+function syncSelectionEditor(start, end) {
+  elements.selectionTimeStart.value = formatDuration(start);
+  elements.selectionTimeEnd.value = formatDuration(end);
+
+  syncSelectionDistanceInput(elements.selectionDistanceAStart, state.tracks[0], start, 0);
+  syncSelectionDistanceInput(elements.selectionDistanceAEnd, state.tracks[0], end, 0);
+  syncSelectionDistanceInput(elements.selectionDistanceBStart, state.tracks[1], start, state.offsetSeconds);
+  syncSelectionDistanceInput(elements.selectionDistanceBEnd, state.tracks[1], end, state.offsetSeconds);
+}
+
+function syncSelectionDistanceInput(input, track, overallTime, shift) {
+  input.disabled = !track;
+  if (!track) {
+    input.value = '';
+    return;
+  }
+
+  const origin = Math.min(0, state.offsetSeconds);
+  const trackTime = overallTime + origin - shift;
+  if (trackTime < track.samples[0].t || trackTime > track.samples[track.samples.length - 1].t) {
+    input.value = '';
+    return;
+  }
+
+  const distance = getTrackValueAtTime(track, trackTime)?.distance;
+  input.value = Number.isFinite(distance) ? distance.toFixed(2) : '';
+}
+
+function applySelectionEditorValue(input, boundary, trackIndex) {
+  const currentStart = Math.min(chartInteraction.selectionStart, chartInteraction.selectionEnd);
+  const currentEnd = Math.max(chartInteraction.selectionStart, chartInteraction.selectionEnd);
+  let overallTime;
+
+  if (trackIndex === null) {
+    overallTime = parseDurationText(input.value);
+  } else {
+    const rawDistance = String(input.value).trim();
+    const distance = rawDistance ? Number(rawDistance.replace(',', '.')) : NaN;
+    const track = state.tracks[trackIndex];
+    const trackTime = getTrackTimeAtDistance(track, distance, boundary);
+    if (trackTime !== null) {
+      const origin = Math.min(0, state.offsetSeconds);
+      const shift = trackIndex === 1 ? state.offsetSeconds : 0;
+      overallTime = trackTime + shift - origin;
+    }
+  }
+
+  if (!Number.isFinite(overallTime)) {
+    syncSelectionEditor(currentStart, currentEnd);
+    return;
+  }
+
+  const clampedTime = Math.max(0, Math.min(state.duration, overallTime));
+  const start = boundary === 'start' ? clampedTime : currentStart;
+  const end = boundary === 'end' ? clampedTime : currentEnd;
+  chartInteraction.selectionStart = Math.min(start, end);
+  chartInteraction.selectionEnd = Math.max(start, end);
+  chartInteraction.selectionStartPixelX = state.chart?.scales?.x?.getPixelForValue(chartInteraction.selectionStart) ?? null;
+  chartInteraction.selectionEndPixelX = state.chart?.scales?.x?.getPixelForValue(chartInteraction.selectionEnd) ?? null;
+  chartInteraction.selectionActive = true;
+  refreshSelectionInspector();
+  state.chart?.draw();
+}
+
+function getTrackTimeAtDistance(track, distance, boundary) {
+  if (!track?.samples.length || !Number.isFinite(distance) || distance < 0) {
+    return null;
+  }
+
+  const samples = track.samples.filter((sample) => Number.isFinite(sample.distance));
+  if (!samples.length || distance < samples[0].distance || distance > samples[samples.length - 1].distance) {
+    return null;
+  }
+
+  if (boundary === 'start') {
+    const index = samples.findIndex((sample) => sample.distance >= distance);
+    if (index <= 0 || samples[index].distance === distance) {
+      return samples[Math.max(index, 0)].t;
+    }
+    return interpolateTimeAtDistance(samples[index - 1], samples[index], distance);
+  }
+
+  for (let index = samples.length - 1; index >= 0; index--) {
+    if (samples[index].distance <= distance) {
+      if (index === samples.length - 1 || samples[index].distance === distance) {
+        return samples[index].t;
+      }
+      return interpolateTimeAtDistance(samples[index], samples[index + 1], distance);
+    }
+  }
+
+  return null;
+}
+
+function interpolateTimeAtDistance(start, end, distance) {
+  const distanceDelta = end.distance - start.distance;
+  if (distanceDelta <= 0) {
+    return start.t;
+  }
+  return start.t + ((distance - start.distance) / distanceDelta) * (end.t - start.t);
 }
 
 function createChartOverlayPlugin() {
@@ -1313,6 +1448,16 @@ function formatValueRow(label, value, unit, className) {
   `;
 }
 
+function formatDurationValueRow(label, seconds, className) {
+  const value = Number.isFinite(seconds) ? formatDuration(seconds) : '-';
+  return `
+    <div class="track-value-row">
+      <span class="label">${label}</span>
+      <span class="value ${className}">${value}</span>
+    </div>
+  `;
+}
+
 function updateAllMetricRows(container, trackAValue, trackBValue) {
   container.innerHTML = `
     ${formatValueRow('HR', trackAValue?.heartRate, 'bpm', 'value-a')}
@@ -1342,6 +1487,41 @@ function averageMetric(track, startTime, endTime, key) {
   }
 
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function calculateStoppedTime(track, startTime, endTime) {
+  if (!track?.samples.length || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+    return null;
+  }
+
+  const rangeStart = Math.max(Math.min(startTime, endTime), track.samples[0].t);
+  const rangeEnd = Math.min(Math.max(startTime, endTime), track.samples[track.samples.length - 1].t);
+  if (rangeEnd <= rangeStart) {
+    return 0;
+  }
+
+  let stoppedSeconds = 0;
+  let hasSpeedData = false;
+
+  for (let index = 1; index < track.samples.length; index++) {
+    const intervalStart = Math.max(track.samples[index - 1].t, rangeStart);
+    const intervalEnd = Math.min(track.samples[index].t, rangeEnd);
+    if (intervalEnd <= intervalStart) {
+      continue;
+    }
+
+    const speed = track.samples[index].speed;
+    if (!Number.isFinite(speed)) {
+      continue;
+    }
+
+    hasSpeedData = true;
+    if (speed < STOPPED_SPEED_THRESHOLD_KMH) {
+      stoppedSeconds += intervalEnd - intervalStart;
+    }
+  }
+
+  return hasSpeedData ? stoppedSeconds : null;
 }
 
 function calculateNormalizedPower(track, startTime, endTime) {
@@ -1425,6 +1605,32 @@ function parseOffsetText(value) {
   }
 
   return sign * ((minutes * 60) + seconds);
+}
+
+function parseDurationText(value) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+
+  const parts = trimmed.split(':').map(Number);
+  if (parts.some((part) => !Number.isInteger(part) || part < 0)) {
+    return null;
+  }
+
+  if (parts.length === 2 && parts[1] < 60) {
+    return (parts[0] * 60) + parts[1];
+  }
+
+  if (parts.length === 3 && parts[1] < 60 && parts[2] < 60) {
+    return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+  }
+
+  return null;
 }
 
 function formatDuration(seconds) {
