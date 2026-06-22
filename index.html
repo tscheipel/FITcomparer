@@ -104,6 +104,7 @@
         <div class="legend">
           <span><i class="legend-dot a"></i> <span id="mapLabelA">Datei 1</span></span>
           <span><i class="legend-dot b"></i> <span id="mapLabelB">Datei 2</span></span>
+          <span class="map-selection-hint" id="mapSelectionHint">Distanzfenster: 2× auf den Track klicken</span>
         </div>
       </div>
       <div id="map"></div>
@@ -145,7 +146,7 @@
         <article class="inspector-card selection-card hidden" id="selectionPanel">
           <div class="inspector-head">
             <div>
-              <p class="card-kicker">Fenster</p>
+              <p class="card-kicker">Zeitfenster</p>
               <h3 id="selectionRange">-</h3>
             </div>
             <button class="selection-close" id="selectionClose" type="button" aria-label="Fenster schließen">×</button>
@@ -168,6 +169,29 @@
             </div>
           </div>
           <div class="track-value-grid" id="selectionValues"></div>
+        </article>
+
+        <article class="inspector-card selection-card hidden" id="distanceSelectionPanel">
+          <div class="inspector-head">
+            <div>
+              <p class="card-kicker">Distanzfenster</p>
+              <h3 id="distanceSelectionRange">Startpunkt auf der Karte wählen</h3>
+            </div>
+            <button class="selection-close" id="distanceSelectionClose" type="button" aria-label="Distanzfenster schließen">×</button>
+          </div>
+          <div class="selection-editor" aria-label="Distanzfenster">
+            <div class="selection-editor-row">
+              <span class="selection-editor-label value-a">Datei 1 (km)</span>
+              <label><span>Anfang</span><input id="distanceWindowAStart" type="text" readonly></label>
+              <label><span>Ende</span><input id="distanceWindowAEnd" type="text" readonly></label>
+            </div>
+            <div class="selection-editor-row">
+              <span class="selection-editor-label value-b">Datei 2 (km)</span>
+              <label><span>Anfang</span><input id="distanceWindowBStart" type="text" readonly></label>
+              <label><span>Ende</span><input id="distanceWindowBEnd" type="text" readonly></label>
+            </div>
+          </div>
+          <div class="track-value-grid" id="distanceSelectionValues"></div>
         </article>
       </div>
     </section>

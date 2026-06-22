@@ -550,6 +550,10 @@ select {
   opacity: 0.45;
 }
 
+.selection-editor input[readonly] {
+  cursor: default;
+}
+
 @media (max-width: 650px) {
   .selection-editor-row {
     grid-template-columns: 1fr 1fr;
@@ -606,6 +610,15 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.legend .map-selection-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.legend .map-selection-hint.active {
+  color: #f4d35e;
 }
 
 .legend-dot {
