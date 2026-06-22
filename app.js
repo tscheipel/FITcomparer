@@ -4,9 +4,13 @@ const METRICS = [
   { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },
   { key: 'power', label: 'Power', unit: 'W', color: '#4de1c1' },
   { key: 'speed', label: 'Geschwindigkeit', unit: 'km/h', color: '#78a6ff' },
+  { key: 'distance', label: 'Distanz', unit: 'km', color: '#ffffff' },
   { key: 'cadence', label: 'Kadenz', unit: 'rpm', color: '#f4d35e' },
   { key: 'altitude', label: 'Höhe', unit: 'm', color: '#d6a7ff' },
 ];
+
+const SPEED_MEDIAN_RADIUS_SECONDS = 5;
+const SPEED_AVERAGE_RADIUS_SECONDS = 5;
 
 const state = {
   tracks: [null, null],
@@ -24,6 +28,8 @@ const state = {
     polylineB: null,
     markerA: null,
     markerB: null,
+    hoverMarkerA: null,
+    hoverMarkerB: null,
   },
 };
 
@@ -385,24 +391,36 @@ function normalizeSamples(rawSamples, keepAbsoluteTime = false) {
   const firstTime = sorted[0].t.getTime();
   let cumulativeDistance = 0;
 
-  return sorted.map((sample, index) => {
+  const normalized = sorted.map((sample, index) => {
     const seconds = keepAbsoluteTime ? (sample.t.getTime() - firstTime) / 1000 : sample.t;
     const hasCurrentCoordinates = hasCoordinates(sample);
     const hasPreviousCoordinates = index > 0 && hasCoordinates(sorted[index - 1]);
+    let deltaDistance = null;
 
-    if (hasCurrentCoordinates && hasPreviousCoordinates) {
-      cumulativeDistance += haversineKm(sorted[index - 1].lat, sorted[index - 1].lon, sample.lat, sample.lon);
+    if (index > 0) {
+      const previousSample = sorted[index - 1];
+      if (Number.isFinite(previousSample.distance) && Number.isFinite(sample.distance)) {
+        const recordedDelta = sample.distance - previousSample.distance;
+        if (recordedDelta >= 0) {
+          deltaDistance = recordedDelta;
+        }
+      }
+
+      if (!Number.isFinite(deltaDistance) && hasPreviousCoordinates && hasCurrentCoordinates) {
+        deltaDistance = haversineKm(previousSample.lat, previousSample.lon, sample.lat, sample.lon);
+      }
+
+      if (Number.isFinite(deltaDistance)) {
+        cumulativeDistance += deltaDistance;
+      }
     }
 
-    let speed = sample.speed;
-    if (!Number.isFinite(speed) && index > 0 && hasPreviousCoordinates && hasCurrentCoordinates) {
+    let speed = null;
+    if (index > 0 && Number.isFinite(deltaDistance)) {
       const deltaSeconds = (sorted[index].t.getTime() - sorted[index - 1].t.getTime()) / 1000;
       if (deltaSeconds > 0) {
-        const deltaDistance = haversineKm(sorted[index - 1].lat, sorted[index - 1].lon, sample.lat, sample.lon);
-        speed = (deltaDistance / deltaSeconds) * 3.6;
+        speed = (deltaDistance / deltaSeconds) * 3600;
       }
-    } else if (Number.isFinite(speed)) {
-      speed = normalizeSpeed(speed);
     }
 
     return {
@@ -414,7 +432,63 @@ function normalizeSamples(rawSamples, keepAbsoluteTime = false) {
       power: sample.power ?? null,
       speed: Number.isFinite(speed) ? speed : null,
       cadence: sample.cadence ?? null,
-      distance: Number.isFinite(sample.lat) && Number.isFinite(sample.lon) ? cumulativeDistance : null,
+      distance: Number.isFinite(deltaDistance) || index === 0 ? cumulativeDistance : null,
+    };
+  });
+
+  return smoothSpeeds(normalized);
+}
+
+function smoothSpeeds(samples) {
+  const medianSpeeds = samples.map((sample, index) => {
+    const values = [];
+    const minimumTime = sample.t - SPEED_MEDIAN_RADIUS_SECONDS;
+    const maximumTime = sample.t + SPEED_MEDIAN_RADIUS_SECONDS;
+
+    for (let candidateIndex = index; candidateIndex >= 0 && samples[candidateIndex].t >= minimumTime; candidateIndex--) {
+      if (Number.isFinite(samples[candidateIndex].speed)) {
+        values.push(samples[candidateIndex].speed);
+      }
+    }
+
+    for (let candidateIndex = index + 1; candidateIndex < samples.length && samples[candidateIndex].t <= maximumTime; candidateIndex++) {
+      if (Number.isFinite(samples[candidateIndex].speed)) {
+        values.push(samples[candidateIndex].speed);
+      }
+    }
+
+    if (!values.length) {
+      return null;
+    }
+
+    values.sort((a, b) => a - b);
+    const middle = Math.floor(values.length / 2);
+    return values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+  });
+
+  return samples.map((sample, index) => {
+    const minimumTime = sample.t - SPEED_AVERAGE_RADIUS_SECONDS;
+    const maximumTime = sample.t + SPEED_AVERAGE_RADIUS_SECONDS;
+    let sum = 0;
+    let count = 0;
+
+    for (let candidateIndex = index; candidateIndex >= 0 && samples[candidateIndex].t >= minimumTime; candidateIndex--) {
+      if (Number.isFinite(medianSpeeds[candidateIndex])) {
+        sum += medianSpeeds[candidateIndex];
+        count++;
+      }
+    }
+
+    for (let candidateIndex = index + 1; candidateIndex < samples.length && samples[candidateIndex].t <= maximumTime; candidateIndex++) {
+      if (Number.isFinite(medianSpeeds[candidateIndex])) {
+        sum += medianSpeeds[candidateIndex];
+        count++;
+      }
+    }
+
+    return {
+      ...sample,
+      speed: count ? sum / count : null,
     };
   });
 }
@@ -495,10 +569,10 @@ function extractFitSample(record) {
     t: timestamp,
     lat: Number.isFinite(latitude) ? toDegrees(latitude) : null,
     lon: Number.isFinite(longitude) ? toDegrees(longitude) : null,
-    altitude: pickNumber(record, ['altitude', 'enhanced_altitude']) ?? null,
+    altitude: kilometersToMeters(pickNumber(record, ['altitude', 'enhanced_altitude'])),
     heartRate: pickNumber(record, ['heart_rate', 'heartRate']) ?? null,
     power: pickNumber(record, ['power']) ?? null,
-    speed: normalizeSpeed(pickNumber(record, ['speed'])),
+    distance: pickNumber(record, ['distance']),
     cadence: pickNumber(record, ['cadence']) ?? null,
   };
 }
@@ -589,6 +663,10 @@ function pickNumber(record, keys) {
   return null;
 }
 
+function kilometersToMeters(value) {
+  return Number.isFinite(value) ? value * 1000 : null;
+}
+
 function parseTimestamp(value) {
   if (!value) {
     return null;
@@ -607,14 +685,6 @@ function toDegrees(value) {
   }
 
   return value;
-}
-
-function normalizeSpeed(value) {
-  if (!Number.isFinite(value)) {
-    return null;
-  }
-
-  return value > 20 ? value : value * 3.6;
 }
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -707,6 +777,40 @@ function updateMapLayers() {
       }
     }
   }
+
+  updateHoverMapMarkers();
+}
+
+function updateHoverMapMarkers() {
+  clearMapLayer('hoverMarkerA');
+  clearMapLayer('hoverMarkerB');
+
+  if (chartInteraction.hoverTime === null) {
+    return;
+  }
+
+  const origin = Math.min(0, state.offsetSeconds);
+  addHoverMapMarker('hoverMarkerA', state.tracks[0], chartInteraction.hoverTime + origin);
+  addHoverMapMarker('hoverMarkerB', state.tracks[1], chartInteraction.hoverTime + origin - state.offsetSeconds);
+}
+
+function addHoverMapMarker(layerName, track, time) {
+  if (!track?.mapSamples.length || time < track.mapSamples[0].t || time > track.mapSamples[track.mapSamples.length - 1].t) {
+    return;
+  }
+
+  const position = interpolatePosition(track.mapSamples, time);
+  if (!position) {
+    return;
+  }
+
+  state.layers[layerName] = L.circleMarker([position.lat, position.lon], {
+    radius: 4,
+    color: '#ffffff',
+    weight: 1,
+    fillColor: '#ffffff',
+    fillOpacity: 1,
+  }).addTo(state.map);
 }
 
 function clearMapLayer(layerName) {
@@ -880,6 +984,8 @@ function refreshSelectionInspector() {
   const metric = getActiveMetric();
   const averageA = averageMetric(state.tracks[0], start + origin, end + origin, metric.key);
   const averageB = averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, metric.key);
+  const normalizedPowerA = calculateNormalizedPower(state.tracks[0], start + origin, end + origin);
+  const normalizedPowerB = calculateNormalizedPower(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
 
   elements.selectionPanel.classList.remove('hidden');
   elements.selectionRange.textContent = `${formatDuration(start)} - ${formatDuration(end)}`;
@@ -890,6 +996,8 @@ function refreshSelectionInspector() {
       formatValueRow(`${entry.label} Ø Datei 1`, averageMetric(state.tracks[0], start + origin, end + origin, entry.key), entry.unit, 'value-a'),
       formatValueRow(`${entry.label} Ø Datei 2`, averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, entry.key), entry.unit, 'value-b'),
     ]),
+    formatValueRow('Normalized Power Datei 1', normalizedPowerA, 'W', 'value-a'),
+    formatValueRow('Normalized Power Datei 2', normalizedPowerB, 'W', 'value-b'),
   ].join('');
 }
 
@@ -966,6 +1074,7 @@ function handleChartPointerMove(event) {
   chartInteraction.hoverTime = time;
   chartInteraction.hoverPixelX = getChartPointerPixelX(event);
   refreshHoverInspector();
+  updateHoverMapMarkers();
 
   if (chartInteraction.selectionDragActive) {
     chartInteraction.selectionEnd = time;
@@ -996,6 +1105,7 @@ function handleChartPointerLeave() {
   chartInteraction.hoverTime = null;
   chartInteraction.hoverPixelX = null;
   refreshHoverInspector();
+  updateHoverMapMarkers();
   state.chart.draw();
 }
 
@@ -1169,6 +1279,7 @@ function getTrackValueAtTime(track, time) {
     heartRate: interpolateNumeric(start.heartRate, end.heartRate, ratio),
     power: interpolateNumeric(start.power, end.power, ratio),
     speed: interpolateNumeric(start.speed, end.speed, ratio),
+    distance: interpolateNumeric(start.distance, end.distance, ratio),
     cadence: interpolateNumeric(start.cadence, end.cadence, ratio),
     altitude: interpolateNumeric(start.altitude, end.altitude, ratio),
     lat: interpolateNumeric(start.lat, end.lat, ratio),
@@ -1231,6 +1342,48 @@ function averageMetric(track, startTime, endTime, key) {
   }
 
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function calculateNormalizedPower(track, startTime, endTime) {
+  if (!track?.samples.length || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+    return null;
+  }
+
+  const rangeStart = Math.max(Math.min(startTime, endTime), track.samples[0].t);
+  const rangeEnd = Math.min(Math.max(startTime, endTime), track.samples[track.samples.length - 1].t);
+  if (rangeEnd - rangeStart < 30) {
+    return null;
+  }
+
+  const rollingPowers = [];
+  const fourthPowers = [];
+  let rollingSum = 0;
+
+  for (let time = rangeStart; time <= rangeEnd; time += 1) {
+    const power = getTrackValueAtTime(track, time)?.power;
+    if (!Number.isFinite(power)) {
+      rollingPowers.length = 0;
+      rollingSum = 0;
+      continue;
+    }
+
+    rollingPowers.push(power);
+    rollingSum += power;
+    if (rollingPowers.length > 30) {
+      rollingSum -= rollingPowers.shift();
+    }
+
+    if (rollingPowers.length === 30) {
+      fourthPowers.push((rollingSum / 30) ** 4);
+    }
+  }
+
+  if (!fourthPowers.length) {
+    return null;
+  }
+
+  const meanFourthPower = fourthPowers.reduce((sum, value) => sum + value, 0) / fourthPowers.length;
+  return meanFourthPower ** 0.25;
 }
 
 function updateOffsetDisplay() {
