@@ -483,6 +483,27 @@ select {
   color: #c2d6ff;
 }
 
+.comparison-pair {
+  display: grid;
+  gap: 8px;
+  margin: 0 -6px 3px;
+  padding: 4px 6px;
+  border-radius: 9px;
+  transition: background 0.15s ease;
+}
+
+.comparison-pair:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.comparison-pair .label {
+  transition: color 0.15s ease;
+}
+
+.comparison-pair:hover .label {
+  color: var(--text);
+}
+
 .selection-card {
   grid-column: 1 / -1;
 }
