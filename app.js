@@ -45,6 +45,8 @@ const elements = {
   metaB: document.getElementById('metaB'),
   statusA: document.getElementById('statusA'),
   statusB: document.getElementById('statusB'),
+  trackNameA: document.getElementById('trackNameA'),
+  trackNameB: document.getElementById('trackNameB'),
   mapLabelA: document.getElementById('mapLabelA'),
   mapLabelB: document.getElementById('mapLabelB'),
   progressBarA: document.getElementById('progressBarA'),
@@ -55,6 +57,7 @@ const elements = {
   progressValueB: document.getElementById('progressValueB'),
   offset: document.getElementById('offset'),
   offsetText: document.getElementById('offsetText'),
+  offsetLabel: document.getElementById('offsetLabel'),
   playPause: document.getElementById('playPause'),
   resetPlayback: document.getElementById('resetPlayback'),
   speed: document.getElementById('speed'),
@@ -77,6 +80,8 @@ const elements = {
   selectionDistanceAEnd: document.getElementById('selectionDistanceAEnd'),
   selectionDistanceBStart: document.getElementById('selectionDistanceBStart'),
   selectionDistanceBEnd: document.getElementById('selectionDistanceBEnd'),
+  selectionLabelA: document.getElementById('selectionLabelA'),
+  selectionLabelB: document.getElementById('selectionLabelB'),
   mapSelectionHint: document.getElementById('mapSelectionHint'),
   distanceSelectionPanel: document.getElementById('distanceSelectionPanel'),
   distanceSelectionRange: document.getElementById('distanceSelectionRange'),
@@ -86,6 +91,8 @@ const elements = {
   distanceWindowAEnd: document.getElementById('distanceWindowAEnd'),
   distanceWindowBStart: document.getElementById('distanceWindowBStart'),
   distanceWindowBEnd: document.getElementById('distanceWindowBEnd'),
+  distanceSelectionLabelA: document.getElementById('distanceSelectionLabelA'),
+  distanceSelectionLabelB: document.getElementById('distanceSelectionLabelB'),
 };
 
 const METRIC_BUTTONS = new Map();
@@ -122,6 +129,8 @@ function init() {
 function bindEvents() {
   elements.fileA.addEventListener('change', () => handleFileSelection(0));
   elements.fileB.addEventListener('change', () => handleFileSelection(1));
+  bindTrackNameEditor(elements.trackNameA, 0);
+  bindTrackNameEditor(elements.trackNameB, 1);
   elements.offset.addEventListener('input', () => {
     state.offsetSeconds = Number(elements.offset.value);
     updateOffsetDisplay();
@@ -158,6 +167,21 @@ function bindEvents() {
   elements.selectionClose.addEventListener('click', clearSelectionWindow);
   elements.distanceSelectionClose.addEventListener('click', clearDistanceSelectionWindow);
   bindSelectionEditorEvents();
+}
+
+function bindTrackNameEditor(input, index) {
+  input.addEventListener('input', () => updateTrackDisplayName(index, input.value));
+  input.addEventListener('change', () => {
+    if (!input.value.trim()) {
+      input.value = state.tracks[index]?.fileName ?? `Datei ${index + 1}`;
+      updateTrackDisplayName(index, input.value);
+    }
+  });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      input.blur();
+    }
+  });
 }
 
 function bindSelectionEditorEvents() {
@@ -299,8 +323,12 @@ async function handleFileSelection(index) {
 
     const track = await parseFitnessFile(buffer, file);
     state.tracks[index] = track;
+    track.displayName = file.name;
+    const nameInput = index === 0 ? elements.trackNameA : elements.trackNameB;
+    nameInput.value = track.displayName;
+    nameInput.classList.remove('hidden');
     clearDistanceSelectionWindow();
-    setMapLabel(index, file.name);
+    updateTrackDisplayName(index, track.displayName);
     setLoadingState(index, {
       phase: 'Fertig',
       percent: 100,
@@ -313,6 +341,9 @@ async function handleFileSelection(index) {
   } catch (error) {
     console.error(error);
     state.tracks[index] = null;
+    const nameInput = index === 0 ? elements.trackNameA : elements.trackNameB;
+    nameInput.value = '';
+    nameInput.classList.add('hidden');
     setMapLabel(index, index === 0 ? 'Datei 1' : 'Datei 2');
     setLoadingState(index, {
       phase: 'Fehler',
@@ -1077,17 +1108,19 @@ function refreshCurrentPointInspector() {
   const metric = getActiveMetric();
   const trackAValue = getTrackValueAtTime(state.tracks[0], timeA);
   const trackBValue = getTrackValueAtTime(state.tracks[1], timeB);
+  const nameA = getTrackDisplayName(0);
+  const nameB = getTrackDisplayName(1);
 
   elements.currentPointTime.textContent = formatDuration(state.currentTime);
   elements.currentPointValues.innerHTML = `
-    ${formatValueRow('HR Datei 1', trackAValue?.heartRate, 'bpm', 'value-a')}
-    ${formatValueRow('HR Datei 2', trackBValue?.heartRate, 'bpm', 'value-b')}
-    ${formatValueRow('Power Datei 1', trackAValue?.power, 'W', 'value-a')}
-    ${formatValueRow('Power Datei 2', trackBValue?.power, 'W', 'value-b')}
-    ${formatValueRow('Geschw. Datei 1', trackAValue?.speed, 'km/h', 'value-a')}
-    ${formatValueRow('Geschw. Datei 2', trackBValue?.speed, 'km/h', 'value-b')}
-    ${formatValueRow(`${metric.label} Datei 1`, trackAValue?.[metric.key], metric.unit, 'value-a')}
-    ${formatValueRow(`${metric.label} Datei 2`, trackBValue?.[metric.key], metric.unit, 'value-b')}
+    ${formatValueRow(`HR ${nameA}`, trackAValue?.heartRate, 'bpm', 'value-a')}
+    ${formatValueRow(`HR ${nameB}`, trackBValue?.heartRate, 'bpm', 'value-b')}
+    ${formatValueRow(`Power ${nameA}`, trackAValue?.power, 'W', 'value-a')}
+    ${formatValueRow(`Power ${nameB}`, trackBValue?.power, 'W', 'value-b')}
+    ${formatValueRow(`Geschw. ${nameA}`, trackAValue?.speed, 'km/h', 'value-a')}
+    ${formatValueRow(`Geschw. ${nameB}`, trackBValue?.speed, 'km/h', 'value-b')}
+    ${formatValueRow(`${metric.label} ${nameA}`, trackAValue?.[metric.key], metric.unit, 'value-a')}
+    ${formatValueRow(`${metric.label} ${nameB}`, trackBValue?.[metric.key], metric.unit, 'value-b')}
   `;
 }
 
@@ -1104,11 +1137,13 @@ function refreshHoverInspector() {
   const metric = getActiveMetric();
   const trackAValue = getTrackValueAtTime(state.tracks[0], timeA);
   const trackBValue = getTrackValueAtTime(state.tracks[1], timeB);
+  const nameA = getTrackDisplayName(0);
+  const nameB = getTrackDisplayName(1);
 
   elements.hoverPointTime.textContent = formatDuration(chartInteraction.hoverTime);
   elements.hoverPointValues.innerHTML = `
-    ${formatValueRow(`${metric.label} Datei 1`, trackAValue?.[metric.key], metric.unit, 'value-a')}
-    ${formatValueRow(`${metric.label} Datei 2`, trackBValue?.[metric.key], metric.unit, 'value-b')}
+    ${formatValueRow(`${metric.label} ${nameA}`, trackAValue?.[metric.key], metric.unit, 'value-a')}
+    ${formatValueRow(`${metric.label} ${nameB}`, trackBValue?.[metric.key], metric.unit, 'value-b')}
   `;
 }
 
@@ -1128,21 +1163,23 @@ function refreshSelectionInspector() {
   const normalizedPowerB = calculateNormalizedPower(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
   const stoppedTimeA = calculateStoppedTime(state.tracks[0], start + origin, end + origin);
   const stoppedTimeB = calculateStoppedTime(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
+  const nameA = getTrackDisplayName(0);
+  const nameB = getTrackDisplayName(1);
 
   elements.selectionPanel.classList.remove('hidden');
   elements.selectionRange.textContent = `${formatDuration(start)} - ${formatDuration(end)}`;
   syncSelectionEditor(start, end);
   elements.selectionValues.innerHTML = [
-    formatValueRow(`${metric.label} Ø Datei 1`, averageA, metric.unit, 'value-a'),
-    formatValueRow(`${metric.label} Ø Datei 2`, averageB, metric.unit, 'value-b'),
+    formatValueRow(`${metric.label} Ø ${nameA}`, averageA, metric.unit, 'value-a'),
+    formatValueRow(`${metric.label} Ø ${nameB}`, averageB, metric.unit, 'value-b'),
     ...METRICS.flatMap((entry) => [
-      formatValueRow(`${entry.label} Ø Datei 1`, averageMetric(state.tracks[0], start + origin, end + origin, entry.key), entry.unit, 'value-a'),
-      formatValueRow(`${entry.label} Ø Datei 2`, averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, entry.key), entry.unit, 'value-b'),
+      formatValueRow(`${entry.label} Ø ${nameA}`, averageMetric(state.tracks[0], start + origin, end + origin, entry.key), entry.unit, 'value-a'),
+      formatValueRow(`${entry.label} Ø ${nameB}`, averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, entry.key), entry.unit, 'value-b'),
     ]),
-    formatValueRow('Normalized Power Datei 1', normalizedPowerA, 'W', 'value-a'),
-    formatValueRow('Normalized Power Datei 2', normalizedPowerB, 'W', 'value-b'),
-    formatDurationValueRow('Stehzeit Datei 1', stoppedTimeA, 'value-a'),
-    formatDurationValueRow('Stehzeit Datei 2', stoppedTimeB, 'value-b'),
+    formatValueRow(`Normalized Power ${nameA}`, normalizedPowerA, 'W', 'value-a'),
+    formatValueRow(`Normalized Power ${nameB}`, normalizedPowerB, 'W', 'value-b'),
+    formatDurationValueRow(`Stehzeit ${nameA}`, stoppedTimeA, 'value-a'),
+    formatDurationValueRow(`Stehzeit ${nameB}`, stoppedTimeB, 'value-b'),
   ].join('');
 }
 
@@ -1276,27 +1313,29 @@ function refreshDistanceSelectionInspector() {
   elements.mapSelectionHint.textContent = 'Distanzfenster aktiv – nächster Klick startet neu';
   const rangeA = distanceInteraction.ranges[0];
   const rangeB = distanceInteraction.ranges[1];
+  const nameA = getTrackDisplayName(0);
+  const nameB = getTrackDisplayName(1);
   setDistanceWindowInput(elements.distanceWindowAStart, rangeA?.start);
   setDistanceWindowInput(elements.distanceWindowAEnd, rangeA?.end);
   setDistanceWindowInput(elements.distanceWindowBStart, rangeB?.start);
   setDistanceWindowInput(elements.distanceWindowBEnd, rangeB?.end);
   elements.distanceSelectionRange.textContent = [
-    formatDistanceRange('Datei 1', rangeA),
-    formatDistanceRange('Datei 2', rangeB),
+    formatDistanceRange(nameA, rangeA),
+    formatDistanceRange(nameB, rangeB),
   ].join(' · ');
 
   const metric = getActiveMetric();
   elements.distanceSelectionValues.innerHTML = [
-    formatValueRow(`${metric.label} Ø Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, metric.key), metric.unit, 'value-a'),
-    formatValueRow(`${metric.label} Ø Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, metric.key), metric.unit, 'value-b'),
+    formatValueRow(`${metric.label} Ø ${nameA}`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, metric.key), metric.unit, 'value-a'),
+    formatValueRow(`${metric.label} Ø ${nameB}`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, metric.key), metric.unit, 'value-b'),
     ...METRICS.flatMap((entry) => [
-      formatValueRow(`${entry.label} Ø Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, entry.key), entry.unit, 'value-a'),
-      formatValueRow(`${entry.label} Ø Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, entry.key), entry.unit, 'value-b'),
+      formatValueRow(`${entry.label} Ø ${nameA}`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, entry.key), entry.unit, 'value-a'),
+      formatValueRow(`${entry.label} Ø ${nameB}`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, entry.key), entry.unit, 'value-b'),
     ]),
-    formatValueRow('Normalized Power Datei 1', calculateNormalizedPower(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'W', 'value-a'),
-    formatValueRow('Normalized Power Datei 2', calculateNormalizedPower(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'W', 'value-b'),
-    formatDurationValueRow('Stehzeit Datei 1', calculateStoppedTime(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'value-a'),
-    formatDurationValueRow('Stehzeit Datei 2', calculateStoppedTime(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'value-b'),
+    formatValueRow(`Normalized Power ${nameA}`, calculateNormalizedPower(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'W', 'value-a'),
+    formatValueRow(`Normalized Power ${nameB}`, calculateNormalizedPower(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'W', 'value-b'),
+    formatDurationValueRow(`Stehzeit ${nameA}`, calculateStoppedTime(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'value-a'),
+    formatDurationValueRow(`Stehzeit ${nameB}`, calculateStoppedTime(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'value-b'),
   ].join('');
 }
 
@@ -1447,7 +1486,7 @@ function buildDataset(track, metric, color, shift, origin) {
     .filter((entry) => Number.isFinite(entry.y));
 
   return {
-    label: track.fileName,
+    label: track.displayName || track.fileName,
     data,
     borderColor: color,
     backgroundColor: color,
@@ -1624,7 +1663,7 @@ function formatMetricValue(value, unit) {
 function formatValueRow(label, value, unit, className) {
   return `
     <div class="track-value-row">
-      <span class="label">${label}</span>
+      <span class="label">${escapeHtml(label)}</span>
       <span class="value ${className}">${formatMetricValue(value, unit)}</span>
     </div>
   `;
@@ -1634,10 +1673,19 @@ function formatDurationValueRow(label, seconds, className) {
   const value = Number.isFinite(seconds) ? formatDuration(seconds) : '-';
   return `
     <div class="track-value-row">
-      <span class="label">${label}</span>
+      <span class="label">${escapeHtml(label)}</span>
       <span class="value ${className}">${value}</span>
     </div>
   `;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function updateAllMetricRows(container, trackAValue, trackBValue) {
@@ -1830,7 +1878,37 @@ function setMapLabel(index, label) {
   element.textContent = label;
 }
 
+function getTrackDisplayName(index) {
+  const track = state.tracks[index];
+  return track?.displayName?.trim() || track?.fileName || `Datei ${index + 1}`;
+}
+
+function updateTrackDisplayName(index, value) {
+  const track = state.tracks[index];
+  if (!track) {
+    return;
+  }
+
+  track.displayName = String(value || '').trim() || track.fileName;
+  const name = getTrackDisplayName(index);
+  setMapLabel(index, name);
+  updateTrackEditorLabels();
+  refreshChart();
+  refreshCurrentPointInspector();
+}
+
+function updateTrackEditorLabels() {
+  const nameA = getTrackDisplayName(0);
+  const nameB = getTrackDisplayName(1);
+  elements.selectionLabelA.textContent = `${nameA} (km)`;
+  elements.selectionLabelB.textContent = `${nameB} (km)`;
+  elements.distanceSelectionLabelA.textContent = `${nameA} (km)`;
+  elements.distanceSelectionLabelB.textContent = `${nameB} (km)`;
+  elements.offsetLabel.textContent = `Start-Offset ${nameB}`;
+}
+
 function resetMapLabels() {
   setMapLabel(0, 'Datei 1');
   setMapLabel(1, 'Datei 2');
+  updateTrackEditorLabels();
 }
