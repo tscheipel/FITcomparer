@@ -1119,8 +1119,6 @@ function refreshCurrentPointInspector() {
     ${formatValueRow(`Power ${nameB}`, trackBValue?.power, 'W', 'value-b')}
     ${formatValueRow(`Geschw. ${nameA}`, trackAValue?.speed, 'km/h', 'value-a')}
     ${formatValueRow(`Geschw. ${nameB}`, trackBValue?.speed, 'km/h', 'value-b')}
-    ${formatValueRow(`${metric.label} ${nameA}`, trackAValue?.[metric.key], metric.unit, 'value-a')}
-    ${formatValueRow(`${metric.label} ${nameB}`, trackBValue?.[metric.key], metric.unit, 'value-b')}
   `;
 }
 
@@ -1156,31 +1154,13 @@ function refreshSelectionInspector() {
   const start = Math.min(chartInteraction.selectionStart, chartInteraction.selectionEnd);
   const end = Math.max(chartInteraction.selectionStart, chartInteraction.selectionEnd);
   const origin = Math.min(0, state.offsetSeconds);
-  const metric = getActiveMetric();
-  const averageA = averageMetric(state.tracks[0], start + origin, end + origin, metric.key);
-  const averageB = averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, metric.key);
-  const normalizedPowerA = calculateNormalizedPower(state.tracks[0], start + origin, end + origin);
-  const normalizedPowerB = calculateNormalizedPower(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
-  const stoppedTimeA = calculateStoppedTime(state.tracks[0], start + origin, end + origin);
-  const stoppedTimeB = calculateStoppedTime(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds);
-  const nameA = getTrackDisplayName(0);
-  const nameB = getTrackDisplayName(1);
+  const rangeA = { startTime: start + origin, endTime: end + origin };
+  const rangeB = { startTime: start + origin - state.offsetSeconds, endTime: end + origin - state.offsetSeconds };
 
   elements.selectionPanel.classList.remove('hidden');
   elements.selectionRange.textContent = `${formatDuration(start)} - ${formatDuration(end)}`;
   syncSelectionEditor(start, end);
-  elements.selectionValues.innerHTML = [
-    formatValueRow(`${metric.label} Ø ${nameA}`, averageA, metric.unit, 'value-a'),
-    formatValueRow(`${metric.label} Ø ${nameB}`, averageB, metric.unit, 'value-b'),
-    ...METRICS.flatMap((entry) => [
-      formatValueRow(`${entry.label} Ø ${nameA}`, averageMetric(state.tracks[0], start + origin, end + origin, entry.key), entry.unit, 'value-a'),
-      formatValueRow(`${entry.label} Ø ${nameB}`, averageMetric(state.tracks[1], start + origin - state.offsetSeconds, end + origin - state.offsetSeconds, entry.key), entry.unit, 'value-b'),
-    ]),
-    formatValueRow(`Normalized Power ${nameA}`, normalizedPowerA, 'W', 'value-a'),
-    formatValueRow(`Normalized Power ${nameB}`, normalizedPowerB, 'W', 'value-b'),
-    formatDurationValueRow(`Stehzeit ${nameA}`, stoppedTimeA, 'value-a'),
-    formatDurationValueRow(`Stehzeit ${nameB}`, stoppedTimeB, 'value-b'),
-  ].join('');
+  elements.selectionValues.innerHTML = buildWindowComparisonRows(rangeA, rangeB);
 }
 
 function syncSelectionEditor(start, end) {
@@ -1324,19 +1304,10 @@ function refreshDistanceSelectionInspector() {
     formatDistanceRange(nameB, rangeB),
   ].join(' · ');
 
-  const metric = getActiveMetric();
-  elements.distanceSelectionValues.innerHTML = [
-    formatValueRow(`${metric.label} Ø ${nameA}`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, metric.key), metric.unit, 'value-a'),
-    formatValueRow(`${metric.label} Ø ${nameB}`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, metric.key), metric.unit, 'value-b'),
-    ...METRICS.flatMap((entry) => [
-      formatValueRow(`${entry.label} Ø ${nameA}`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, entry.key), entry.unit, 'value-a'),
-      formatValueRow(`${entry.label} Ø ${nameB}`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, entry.key), entry.unit, 'value-b'),
-    ]),
-    formatValueRow(`Normalized Power ${nameA}`, calculateNormalizedPower(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'W', 'value-a'),
-    formatValueRow(`Normalized Power ${nameB}`, calculateNormalizedPower(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'W', 'value-b'),
-    formatDurationValueRow(`Stehzeit ${nameA}`, calculateStoppedTime(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'value-a'),
-    formatDurationValueRow(`Stehzeit ${nameB}`, calculateStoppedTime(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'value-b'),
-  ].join('');
+  elements.distanceSelectionValues.innerHTML = buildWindowComparisonRows(
+    rangeA ? { startTime: rangeA.start.t, endTime: rangeA.end.t } : null,
+    rangeB ? { startTime: rangeB.start.t, endTime: rangeB.end.t } : null
+  );
 }
 
 function setDistanceWindowInput(input, sample) {
@@ -1355,6 +1326,89 @@ function clearDistanceSelectionWindow() {
   distanceInteraction.ranges = [null, null];
   refreshDistanceSelectionInspector();
   renderDistanceSelectionLayers();
+}
+
+function buildWindowComparisonRows(rangeA, rangeB) {
+  const ranges = [rangeA, rangeB];
+  const names = [getTrackDisplayName(0), getTrackDisplayName(1)];
+  const classes = ['value-a', 'value-b'];
+  const rows = [];
+
+  const addMetricPair = (label, key, unit) => {
+    for (let index = 0; index < 2; index++) {
+      const range = ranges[index];
+      rows.push(formatValueRow(
+        `${label} Ø ${names[index]}`,
+        averageMetric(state.tracks[index], range?.startTime, range?.endTime, key),
+        unit,
+        classes[index]
+      ));
+    }
+  };
+
+  addMetricPair('Geschwindigkeit', 'speed', 'km/h');
+  addMetricPair('HR', 'heartRate', 'bpm');
+  addMetricPair('Power', 'power', 'W');
+
+  for (let index = 0; index < 2; index++) {
+    const range = ranges[index];
+    rows.push(formatValueRow(
+      `Normalized Power ${names[index]}`,
+      calculateNormalizedPower(state.tracks[index], range?.startTime, range?.endTime),
+      'W',
+      classes[index]
+    ));
+  }
+
+  for (let index = 0; index < 2; index++) {
+    const range = ranges[index];
+    rows.push(formatDurationValueRow(
+      `Zeit ${names[index]}`,
+      calculateElapsedTime(state.tracks[index], range?.startTime, range?.endTime),
+      classes[index]
+    ));
+  }
+
+  for (let index = 0; index < 2; index++) {
+    const range = ranges[index];
+    rows.push(formatValueRow(
+      `Distanz ${names[index]}`,
+      calculateDistanceCovered(state.tracks[index], range?.startTime, range?.endTime),
+      'km',
+      classes[index]
+    ));
+  }
+
+  for (let index = 0; index < 2; index++) {
+    const range = ranges[index];
+    rows.push(formatValueRow(
+      `Höhenzunahme ${names[index]}`,
+      calculateElevationGain(state.tracks[index], range?.startTime, range?.endTime),
+      'm',
+      classes[index]
+    ));
+  }
+
+  for (let index = 0; index < 2; index++) {
+    const range = ranges[index];
+    rows.push(formatDurationValueRow(
+      `Stehzeit ${names[index]}`,
+      calculateStoppedTime(state.tracks[index], range?.startTime, range?.endTime),
+      classes[index]
+    ));
+  }
+
+  const pairs = [];
+  for (let index = 0; index < rows.length; index += 2) {
+    pairs.push(`
+      <div class="comparison-pair">
+        ${rows[index]}
+        ${rows[index + 1] ?? ''}
+      </div>
+    `);
+  }
+
+  return pairs.join('');
 }
 
 function createChartOverlayPlugin() {
@@ -1656,7 +1710,7 @@ function formatMetricValue(value, unit) {
     return '—';
   }
 
-  const decimals = unit === 'km/h' || unit === 'm' ? 2 : 0;
+  const decimals = unit === 'km/h' || unit === 'km' || unit === 'm' ? 2 : 0;
   return `${value.toFixed(decimals)} ${unit}`;
 }
 
@@ -1703,7 +1757,7 @@ function updateAllMetricRows(container, trackAValue, trackBValue) {
 }
 
 function averageMetric(track, startTime, endTime, key) {
-  if (!track || startTime === null || endTime === null) {
+  if (!track || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
     return null;
   }
 
@@ -1717,6 +1771,65 @@ function averageMetric(track, startTime, endTime, key) {
   }
 
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function getClampedTrackRange(track, startTime, endTime) {
+  if (!track?.samples.length || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+    return null;
+  }
+
+  const rangeStart = Math.max(Math.min(startTime, endTime), track.samples[0].t);
+  const rangeEnd = Math.min(Math.max(startTime, endTime), track.samples[track.samples.length - 1].t);
+  return rangeEnd >= rangeStart ? { start: rangeStart, end: rangeEnd } : null;
+}
+
+function calculateElapsedTime(track, startTime, endTime) {
+  const range = getClampedTrackRange(track, startTime, endTime);
+  return range ? range.end - range.start : null;
+}
+
+function calculateDistanceCovered(track, startTime, endTime) {
+  const range = getClampedTrackRange(track, startTime, endTime);
+  if (!range) {
+    return null;
+  }
+
+  const startDistance = getTrackValueAtTime(track, range.start)?.distance;
+  const endDistance = getTrackValueAtTime(track, range.end)?.distance;
+  return Number.isFinite(startDistance) && Number.isFinite(endDistance)
+    ? Math.max(0, endDistance - startDistance)
+    : null;
+}
+
+function calculateElevationGain(track, startTime, endTime) {
+  const range = getClampedTrackRange(track, startTime, endTime);
+  if (!range) {
+    return null;
+  }
+
+  const altitudes = [getTrackValueAtTime(track, range.start)?.altitude];
+  for (const sample of track.samples) {
+    if (sample.t > range.start && sample.t < range.end) {
+      altitudes.push(sample.altitude);
+    }
+  }
+  altitudes.push(getTrackValueAtTime(track, range.end)?.altitude);
+
+  let gain = 0;
+  let previous = null;
+  let hasAltitudeData = false;
+  for (const altitude of altitudes) {
+    if (!Number.isFinite(altitude)) {
+      continue;
+    }
+    if (previous !== null) {
+      gain += Math.max(0, altitude - previous);
+    }
+    previous = altitude;
+    hasAltitudeData = true;
+  }
+
+  return hasAltitudeData ? gain : null;
 }
 
 function calculateStoppedTime(track, startTime, endTime) {
