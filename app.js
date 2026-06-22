@@ -31,6 +31,10 @@ const state = {
     markerB: null,
     hoverMarkerA: null,
     hoverMarkerB: null,
+    distanceSegmentA: null,
+    distanceSegmentB: null,
+    distanceStartMarker: null,
+    distanceEndMarker: null,
   },
 };
 
@@ -73,6 +77,15 @@ const elements = {
   selectionDistanceAEnd: document.getElementById('selectionDistanceAEnd'),
   selectionDistanceBStart: document.getElementById('selectionDistanceBStart'),
   selectionDistanceBEnd: document.getElementById('selectionDistanceBEnd'),
+  mapSelectionHint: document.getElementById('mapSelectionHint'),
+  distanceSelectionPanel: document.getElementById('distanceSelectionPanel'),
+  distanceSelectionRange: document.getElementById('distanceSelectionRange'),
+  distanceSelectionValues: document.getElementById('distanceSelectionValues'),
+  distanceSelectionClose: document.getElementById('distanceSelectionClose'),
+  distanceWindowAStart: document.getElementById('distanceWindowAStart'),
+  distanceWindowAEnd: document.getElementById('distanceWindowAEnd'),
+  distanceWindowBStart: document.getElementById('distanceWindowBStart'),
+  distanceWindowBEnd: document.getElementById('distanceWindowBEnd'),
 };
 
 const METRIC_BUTTONS = new Map();
@@ -87,6 +100,11 @@ const chartInteraction = {
   selectionActive: false,
   selectionDragActive: false,
   dragPointerId: null,
+};
+
+const distanceInteraction = {
+  clicks: [],
+  ranges: [null, null],
 };
 
 init();
@@ -138,6 +156,7 @@ function bindEvents() {
     updateVisuals();
   });
   elements.selectionClose.addEventListener('click', clearSelectionWindow);
+  elements.distanceSelectionClose.addEventListener('click', clearDistanceSelectionWindow);
   bindSelectionEditorEvents();
 }
 
@@ -185,6 +204,7 @@ function initMap() {
     attribution: '&copy; OpenStreetMap-Mitwirkende',
     maxZoom: 19,
   }).addTo(state.map);
+  state.map.on('click', handleMapDistanceSelectionClick);
 }
 
 function initChart() {
@@ -279,6 +299,7 @@ async function handleFileSelection(index) {
 
     const track = await parseFitnessFile(buffer, file);
     state.tracks[index] = track;
+    clearDistanceSelectionWindow();
     setMapLabel(index, file.name);
     setLoadingState(index, {
       phase: 'Fertig',
@@ -807,6 +828,96 @@ function updateMapLayers() {
   }
 
   updateHoverMapMarkers();
+  renderDistanceSelectionLayers();
+}
+
+function handleMapDistanceSelectionClick(event) {
+  const nearestByTrack = state.tracks.map((track) => findNearestMapSample(track, event.latlng));
+  const nearestDistance = Math.min(...nearestByTrack.map((result) => result?.pixelDistance ?? Infinity));
+  if (nearestDistance > 30) {
+    return;
+  }
+
+  if (distanceInteraction.clicks.length >= 2) {
+    clearDistanceSelectionWindow();
+  }
+
+  const projections = nearestByTrack.map((result) =>
+    result && result.pixelDistance <= 60 ? result.sample : null
+  );
+  distanceInteraction.clicks.push({ latlng: event.latlng, projections });
+
+  if (distanceInteraction.clicks.length === 2) {
+    for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+      const first = distanceInteraction.clicks[0].projections[trackIndex];
+      const second = distanceInteraction.clicks[1].projections[trackIndex];
+      distanceInteraction.ranges[trackIndex] = first && second
+        ? { start: first.distance <= second.distance ? first : second, end: first.distance <= second.distance ? second : first }
+        : null;
+    }
+  }
+
+  refreshDistanceSelectionInspector();
+  renderDistanceSelectionLayers();
+}
+
+function findNearestMapSample(track, latlng) {
+  if (!track?.mapSamples.length || !state.map) {
+    return null;
+  }
+
+  const clickPoint = state.map.latLngToLayerPoint(latlng);
+  let nearestSample = null;
+  let nearestDistance = Infinity;
+  for (const sample of track.mapSamples) {
+    const samplePoint = state.map.latLngToLayerPoint([sample.lat, sample.lon]);
+    const pixelDistance = clickPoint.distanceTo(samplePoint);
+    if (pixelDistance < nearestDistance) {
+      nearestDistance = pixelDistance;
+      nearestSample = sample;
+    }
+  }
+
+  return nearestSample ? { sample: nearestSample, pixelDistance: nearestDistance } : null;
+}
+
+function renderDistanceSelectionLayers() {
+  clearMapLayer('distanceSegmentA');
+  clearMapLayer('distanceSegmentB');
+  clearMapLayer('distanceStartMarker');
+  clearMapLayer('distanceEndMarker');
+
+  const colors = ['#4de1c1', '#78a6ff'];
+  for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
+    const range = distanceInteraction.ranges[trackIndex];
+    const track = state.tracks[trackIndex];
+    if (!range || !track) {
+      continue;
+    }
+
+    const coordinates = track.mapSamples
+      .filter((sample) => sample.t >= range.start.t && sample.t <= range.end.t)
+      .map((sample) => [sample.lat, sample.lon]);
+    if (coordinates.length >= 2) {
+      const layerName = trackIndex === 0 ? 'distanceSegmentA' : 'distanceSegmentB';
+      state.layers[layerName] = L.polyline(coordinates, {
+        color: colors[trackIndex],
+        weight: 9,
+        opacity: 0.48,
+      }).addTo(state.map);
+    }
+  }
+
+  const markerNames = ['distanceStartMarker', 'distanceEndMarker'];
+  distanceInteraction.clicks.forEach((click, index) => {
+    state.layers[markerNames[index]] = L.circleMarker(click.latlng, {
+      radius: 8,
+      color: '#f4d35e',
+      weight: 3,
+      fillColor: '#06131b',
+      fillOpacity: 1,
+    }).addTo(state.map);
+  });
 }
 
 function updateHoverMapMarkers() {
@@ -932,6 +1043,7 @@ function refreshChart() {
   state.chart.update('none');
   refreshHoverInspector();
   refreshSelectionInspector();
+  refreshDistanceSelectionInspector();
 }
 
 function getChartTimeFromPixel(pixelX) {
@@ -1134,6 +1246,76 @@ function interpolateTimeAtDistance(start, end, distance) {
     return start.t;
   }
   return start.t + ((distance - start.distance) / distanceDelta) * (end.t - start.t);
+}
+
+function refreshDistanceSelectionInspector() {
+  if (!distanceInteraction.clicks.length) {
+    elements.distanceSelectionPanel.classList.add('hidden');
+    elements.mapSelectionHint.textContent = 'Distanzfenster: 2× auf den Track klicken';
+    elements.mapSelectionHint.classList.remove('active');
+    return;
+  }
+
+  elements.distanceSelectionPanel.classList.remove('hidden');
+  elements.mapSelectionHint.classList.add('active');
+
+  const firstProjections = distanceInteraction.clicks[0].projections;
+  const secondProjections = distanceInteraction.clicks[1]?.projections ?? [null, null];
+  setDistanceWindowInput(elements.distanceWindowAStart, firstProjections[0]);
+  setDistanceWindowInput(elements.distanceWindowAEnd, secondProjections[0]);
+  setDistanceWindowInput(elements.distanceWindowBStart, firstProjections[1]);
+  setDistanceWindowInput(elements.distanceWindowBEnd, secondProjections[1]);
+
+  if (distanceInteraction.clicks.length < 2) {
+    elements.distanceSelectionRange.textContent = 'Start gesetzt – jetzt Endpunkt wählen';
+    elements.distanceSelectionValues.innerHTML = '';
+    elements.mapSelectionHint.textContent = 'Distanzfenster: Endpunkt auf dem Track wählen';
+    return;
+  }
+
+  elements.mapSelectionHint.textContent = 'Distanzfenster aktiv – nächster Klick startet neu';
+  const rangeA = distanceInteraction.ranges[0];
+  const rangeB = distanceInteraction.ranges[1];
+  setDistanceWindowInput(elements.distanceWindowAStart, rangeA?.start);
+  setDistanceWindowInput(elements.distanceWindowAEnd, rangeA?.end);
+  setDistanceWindowInput(elements.distanceWindowBStart, rangeB?.start);
+  setDistanceWindowInput(elements.distanceWindowBEnd, rangeB?.end);
+  elements.distanceSelectionRange.textContent = [
+    formatDistanceRange('Datei 1', rangeA),
+    formatDistanceRange('Datei 2', rangeB),
+  ].join(' · ');
+
+  const metric = getActiveMetric();
+  elements.distanceSelectionValues.innerHTML = [
+    formatValueRow(`${metric.label} ť Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, metric.key), metric.unit, 'value-a'),
+    formatValueRow(`${metric.label} ť Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, metric.key), metric.unit, 'value-b'),
+    ...METRICS.flatMap((entry) => [
+      formatValueRow(`${entry.label} ť Datei 1`, averageMetric(state.tracks[0], rangeA?.start.t, rangeA?.end.t, entry.key), entry.unit, 'value-a'),
+      formatValueRow(`${entry.label} ť Datei 2`, averageMetric(state.tracks[1], rangeB?.start.t, rangeB?.end.t, entry.key), entry.unit, 'value-b'),
+    ]),
+    formatValueRow('Normalized Power Datei 1', calculateNormalizedPower(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'W', 'value-a'),
+    formatValueRow('Normalized Power Datei 2', calculateNormalizedPower(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'W', 'value-b'),
+    formatDurationValueRow('Stehzeit Datei 1', calculateStoppedTime(state.tracks[0], rangeA?.start.t, rangeA?.end.t), 'value-a'),
+    formatDurationValueRow('Stehzeit Datei 2', calculateStoppedTime(state.tracks[1], rangeB?.start.t, rangeB?.end.t), 'value-b'),
+  ].join('');
+}
+
+function setDistanceWindowInput(input, sample) {
+  input.value = Number.isFinite(sample?.distance) ? sample.distance.toFixed(2) : '-';
+}
+
+function formatDistanceRange(label, range) {
+  if (!range) {
+    return `${label}: -`;
+  }
+  return `${label}: ${range.start.distance.toFixed(2)}–${range.end.distance.toFixed(2)} km`;
+}
+
+function clearDistanceSelectionWindow() {
+  distanceInteraction.clicks = [];
+  distanceInteraction.ranges = [null, null];
+  refreshDistanceSelectionInspector();
+  renderDistanceSelectionLayers();
 }
 
 function createChartOverlayPlugin() {
