@@ -24,20 +24,65 @@ export function isVideoExportSupported() {
     && typeof OffscreenCanvas !== 'undefined';
 }
 
-// H.264 zuerst, VP9 als Rueckfalloption. Liefert null, wenn der Browser keins kann.
+// Reihenfolge = Praeferenz: beste Qualitaet zuerst. Baseline (kein B-Frame-Umsortieren)
+// und VP9 stehen als Rueckfall da, weil nicht jeder Encoder die Bilder in
+// Darstellungsreihenfolge ausgibt (siehe probeEncoder).
+const ENCODER_CANDIDATES = [
+  { muxerCodec: 'avc', label: 'H.264 High', config: { codec: 'avc1.640028', avc: { format: 'avc' } } },
+  { muxerCodec: 'avc', label: 'H.264 Main', config: { codec: 'avc1.4d0028', avc: { format: 'avc' } } },
+  { muxerCodec: 'avc', label: 'H.264 Baseline', config: { codec: 'avc1.420028', avc: { format: 'avc' } } },
+  { muxerCodec: 'vp9', label: 'VP9', config: { codec: 'vp09.00.10.08' } },
+];
+
+const PROBE_FRAMES = 8;
+
+// Kodiert ein paar Probebilder und prueft, ob die Chunks mit monoton steigenden
+// Zeitstempeln herauskommen. Firefox' H.264 High/Main nutzt B-Frames und gibt die
+// Chunks in Dekodierreihenfolge aus (33333, 99999, 66666 …). Der Muxer kann das
+// nicht abbilden; wuerde man es erst mitten im Export merken, waere die Arbeit weg.
+async function probeEncoder(config, width, height) {
+  const timestamps = [];
+  let failed = false;
+  const encoder = new VideoEncoder({
+    output: (chunk) => timestamps.push(chunk.timestamp),
+    error: () => { failed = true; },
+  });
+
+  try {
+    encoder.configure(config);
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    const frameUs = Math.round(1e6 / config.framerate);
+    for (let index = 0; index < PROBE_FRAMES; index++) {
+      ctx.fillStyle = `hsl(${index * 40}, 60%, 40%)`;
+      ctx.fillRect(0, 0, width, height);
+      const frame = new VideoFrame(canvas, { timestamp: index * frameUs, duration: frameUs });
+      encoder.encode(frame, { keyFrame: index === 0 });
+      frame.close();
+    }
+    await encoder.flush();
+  } catch {
+    return false;
+  } finally {
+    if (encoder.state !== 'closed') {
+      encoder.close();
+    }
+  }
+
+  const monotonic = timestamps.every((time, index) => index === 0 || time > timestamps[index - 1]);
+  return !failed && timestamps.length === PROBE_FRAMES && monotonic;
+}
+
+// Liefert den ersten Kandidaten, den der Browser nicht nur kennt, sondern dessen
+// Ausgabe der Muxer auch verarbeiten kann. null, wenn keiner taugt.
 export async function chooseEncoderConfig({ width, height, fps }) {
   const bitrate = bitrateForHeight(height);
-  const candidates = [
-    { muxerCodec: 'avc', label: 'H.264', config: { codec: 'avc1.640028', avc: { format: 'avc' } } },
-    { muxerCodec: 'avc', label: 'H.264', config: { codec: 'avc1.4d0028', avc: { format: 'avc' } } },
-    { muxerCodec: 'vp9', label: 'VP9', config: { codec: 'vp09.00.10.08' } },
-  ];
 
-  for (const candidate of candidates) {
+  for (const candidate of ENCODER_CANDIDATES) {
     const config = { ...candidate.config, width, height, bitrate, framerate: fps };
     try {
       const { supported } = await VideoEncoder.isConfigSupported(config);
-      if (supported) {
+      if (supported && await probeEncoder(config, width, height)) {
         return { muxerCodec: candidate.muxerCodec, label: candidate.label, config };
       }
     } catch {
@@ -328,12 +373,24 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
     target: new ArrayBufferTarget(),
     video: { codec: choice.muxerCodec, width, height, frameRate: fps },
     fastStart: 'in-memory',
+    // Firefox' Encoder beginnt nicht bei Zeitstempel 0; 'offset' schiebt alles passend.
+    firstTimestampBehavior: 'offset',
   });
 
   let encoderError = null;
+  let chunkCount = 0;
   const encoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (error) => { encoderError = error; },
+    output: (chunk, meta) => {
+      // Wirft der Muxer hier, erreicht das den error-Callback des Encoders nicht.
+      // Ohne diesen try/catch entstuende still eine leere Datei.
+      try {
+        muxer.addVideoChunk(chunk, meta);
+        chunkCount++;
+      } catch (error) {
+        encoderError ??= error;
+      }
+    },
+    error: (error) => { encoderError ??= error; },
   });
   encoder.configure(choice.config);
 
@@ -388,6 +445,12 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
     await encoder.flush();
     if (encoderError) {
       throw encoderError;
+    }
+    if (chunkCount === 0) {
+      throw new Error(`Der ${choice.label}-Encoder dieses Browsers hat kein einziges Bild geliefert.`);
+    }
+    if (chunkCount < frameCount * 0.9) {
+      throw new Error(`Der Encoder lieferte nur ${chunkCount} von ${frameCount} Bildern; die Datei w\u00e4re unvollst\u00e4ndig.`);
     }
     muxer.finalize();
   } finally {
