@@ -72,6 +72,23 @@
       </div>
     </template>
 
+    <section class="panel comparison-card hidden" id="comparisonPanel">
+      <div class="section-header">
+        <div>
+          <p class="card-kicker">Vergleich</p>
+          <h3 class="comparison-title">Gesamte Aktivität</h3>
+        </div>
+      </div>
+      <div class="comparison-block" id="deviceComparison">
+        <p class="comparison-subhead">Gerätewerte aus der Datei <span class="comparison-note">entspricht Garmin Connect</span></p>
+        <div class="comparison-scroll" id="deviceComparisonValues"></div>
+      </div>
+      <details class="comparison-block" id="computedComparison" open>
+        <summary class="comparison-subhead">Berechnet aus den Messpunkten <span class="comparison-note">gleiche Rechnung wie Zeit- und Distanzfenster</span></summary>
+        <div class="comparison-scroll" id="computedComparisonValues"></div>
+      </details>
+    </section>
+
     <section class="panel controls-card">
       <div class="control-row">
         <div class="control-group">
@@ -103,23 +120,6 @@
           <span id="durationLabel">0:00</span>
         </div>
       </div>
-    </section>
-
-    <section class="panel comparison-card hidden" id="comparisonPanel">
-      <div class="section-header">
-        <div>
-          <p class="card-kicker">Vergleich</p>
-          <h3 class="comparison-title">Gesamte Aktivität</h3>
-        </div>
-      </div>
-      <div class="comparison-block" id="deviceComparison">
-        <p class="comparison-subhead">Gerätewerte aus der Datei <span class="comparison-note">entspricht Garmin Connect</span></p>
-        <div class="comparison-scroll" id="deviceComparisonValues"></div>
-      </div>
-      <details class="comparison-block" id="computedComparison" open>
-        <summary class="comparison-subhead">Berechnet aus den Messpunkten <span class="comparison-note">gleiche Rechnung wie Zeit- und Distanzfenster</span></summary>
-        <div class="comparison-scroll" id="computedComparisonValues"></div>
-      </details>
     </section>
 
     <section class="panel map-card">
