@@ -1,3 +1,10 @@
+/*
+ * FITcomparer
+ * Copyright (c) 2026 Tobias Scheipel
+ * SPDX-License-Identifier: MIT
+ * See the LICENSE file in the project root for the full license text.
+ */
+
 // Rendert die Karte mit allen Tracks und den wandernden Positionsmarkern Bild fuer
 // Bild auf ein Canvas und kodiert das Ergebnis mit WebCodecs zu einer MP4-Datei.
 // Alles laeuft im Browser; ueber das Netz geht nur das einmalige Laden der
@@ -318,6 +325,119 @@ function drawAttribution(ctx, width, height) {
   ctx.restore();
 }
 
+// --- avcC reparieren ---------------------------------------------------------------
+//
+// Der Muxer uebernimmt decoderConfig.description des Encoders unveraendert als
+// avcC-Box. Firefox' Beschreibung ist nicht wohlgeformt: die Pflichtbits fehlen
+// (03 01 statt FF E1) und SPS/PPS tragen ein doppeltes NAL-Kopfbyte (67 67 42 …).
+// Firefox selbst liest die Parameter-Sets still aus dem Videostrom und spielt die
+// Datei trotzdem ab. Die Windows-Medienwiedergabe haelt sich strikt an avcC, liest
+// daraus 16x32 Pixel und findet keinen Decoder (MF_E_TOPO_CODEC_NOT_FOUND).
+
+function isWellFormedAvcC(bytes) {
+  if (bytes.length < 11 || bytes[0] !== 1) {
+    return false;
+  }
+  if ((bytes[4] & 0xfc) !== 0xfc || (bytes[5] & 0xe0) !== 0xe0 || (bytes[5] & 0x1f) < 1) {
+    return false;
+  }
+
+  const spsLength = (bytes[6] << 8) | bytes[7];
+  const sps = bytes.subarray(8, 8 + spsLength);
+  // Der SPS muss mit NAL-Typ 7 beginnen, und die drei Folgebytes (profile, constraint
+  // flags, level) muessen den Kopfwerten der avcC entsprechen.
+  if (sps.length !== spsLength || (sps[0] & 0x1f) !== 7
+    || sps[1] !== bytes[1] || sps[2] !== bytes[2] || sps[3] !== bytes[3]) {
+    return false;
+  }
+
+  const ppsCountOffset = 8 + spsLength;
+  if (bytes.length < ppsCountOffset + 3 || bytes[ppsCountOffset] < 1) {
+    return false;
+  }
+  const ppsLength = (bytes[ppsCountOffset + 1] << 8) | bytes[ppsCountOffset + 2];
+  const pps = bytes.subarray(ppsCountOffset + 3, ppsCountOffset + 3 + ppsLength);
+  return pps.length === ppsLength && (pps[0] & 0x1f) === 8;
+}
+
+// Zerlegt ein Sample im AVC-Format (laengenpraefixierte NAL-Einheiten).
+function readNalUnits(data, lengthSize) {
+  const units = [];
+  let position = 0;
+  while (position + lengthSize <= data.length) {
+    let length = 0;
+    for (let i = 0; i < lengthSize; i++) {
+      length = (length * 256) + data[position + i];
+    }
+    position += lengthSize;
+    if (length === 0 || position + length > data.length) {
+      return null;
+    }
+    units.push(data.subarray(position, position + length));
+    position += length;
+  }
+  return units;
+}
+
+// Baut eine wohlgeformte avcC aus den Parameter-Sets, die im ersten Keyframe stecken.
+function buildAvcCFromSample(data) {
+  const units = readNalUnits(data, 4);
+  if (!units) {
+    return null;
+  }
+
+  const sps = units.filter((unit) => (unit[0] & 0x1f) === 7);
+  const pps = units.filter((unit) => (unit[0] & 0x1f) === 8);
+  if (!sps.length || !pps.length || sps[0].length < 4) {
+    return null;
+  }
+
+  const parts = [[1, sps[0][1], sps[0][2], sps[0][3], 0xff, 0xe0 | sps.length]];
+  for (const unit of sps) {
+    parts.push([unit.length >> 8, unit.length & 0xff], unit);
+  }
+  parts.push([pps.length]);
+  for (const unit of pps) {
+    parts.push([unit.length >> 8, unit.length & 0xff], unit);
+  }
+
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
+
+// Gibt meta unveraendert zurueck, wenn die Beschreibung in Ordnung ist (Chrome/Edge),
+// sonst eine Kopie mit neu aufgebauter avcC. Kann sie nicht repariert werden, bleibt
+// das Original; der Aufrufer meldet das dann nicht als Fehler, die Datei laeuft dann
+// zumindest in Browsern.
+function repairAvcMeta(chunk, meta) {
+  const description = meta?.decoderConfig?.description;
+  if (!description) {
+    return meta;
+  }
+
+  const bytes = description instanceof ArrayBuffer
+    ? new Uint8Array(description)
+    : new Uint8Array(description.buffer, description.byteOffset, description.byteLength);
+  if (isWellFormedAvcC(bytes)) {
+    return meta;
+  }
+
+  const data = new Uint8Array(chunk.byteLength);
+  chunk.copyTo(data);
+  const rebuilt = buildAvcCFromSample(data);
+  if (!rebuilt || !isWellFormedAvcC(rebuilt)) {
+    return meta;
+  }
+
+  return { ...meta, decoderConfig: { ...meta.decoderConfig, description: rebuilt } };
+}
+
 // --- Export ------------------------------------------------------------------------
 
 /**
@@ -384,7 +504,7 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
       // Wirft der Muxer hier, erreicht das den error-Callback des Encoders nicht.
       // Ohne diesen try/catch entstuende still eine leere Datei.
       try {
-        muxer.addVideoChunk(chunk, meta);
+        muxer.addVideoChunk(chunk, choice.muxerCodec === 'avc' ? repairAvcMeta(chunk, meta) : meta);
         chunkCount++;
       } catch (error) {
         encoderError ??= error;

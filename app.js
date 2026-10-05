@@ -1,3 +1,10 @@
+/*
+ * FITcomparer
+ * Copyright (c) 2026 Tobias Scheipel
+ * SPDX-License-Identifier: MIT
+ * See the LICENSE file in the project root for the full license text.
+ */
+
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
 import { bitrateForHeight, exportVideo, isVideoExportSupported } from './video-export.js';
