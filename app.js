@@ -1,4 +1,6 @@
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
+import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
+import { bitrateForHeight, exportVideo, isVideoExportSupported } from './video-export.js';
 
 const METRICS = [
   { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },
@@ -91,6 +93,22 @@ const MIN_SLOTS = 2;
 const MAX_SLOTS = TRACK_COLORS.length;
 let nextSlotId = 1;
 
+// Diese Konstanten muessen vor dem init()-Aufruf stehen: init() laeuft beim Laden
+// des Moduls und liest sie sofort. Weiter unten deklariert waeren sie dann noch in
+// der Temporal Dead Zone.
+const MAP_MIN_HEIGHT = 240;
+const MAP_KEY_STEP = 40;
+
+// Stufen des Wiedergabefaktors im Video. Vorbelegt wird die kleinste, bei der das
+// Video hoechstens zehn Minuten dauert.
+const VIDEO_SPEED_STEPS = [10, 20, 60, 100, 200, 500, 1000];
+const VIDEO_FPS = 30;
+const VIDEO_TARGET_SECONDS = 600;
+const VIDEO_WARN_BYTES = 400e6;
+const VIDEO_MAX_BYTES = 1.5e9;
+
+const videoExportState = { controller: null };
+
 const state = {
   slots: [],
   selectedMetric: 'speed',
@@ -117,6 +135,20 @@ const elements = {
   selectionRowTemplate: document.getElementById('selectionRowTemplate'),
   distanceRowTemplate: document.getElementById('distanceRowTemplate'),
   mapLegend: document.getElementById('mapLegend'),
+  mapFrame: document.getElementById('mapFrame'),
+  exportVideoButton: document.getElementById('exportVideo'),
+  videoDialog: document.getElementById('videoDialog'),
+  videoForm: document.getElementById('videoForm'),
+  videoSpeed: document.getElementById('videoSpeed'),
+  videoSize: document.getElementById('videoSize'),
+  videoEstimate: document.getElementById('videoEstimate'),
+  videoProgress: document.getElementById('videoProgress'),
+  videoProgressTrack: document.getElementById('videoProgressTrack'),
+  videoProgressBar: document.getElementById('videoProgressBar'),
+  videoStatus: document.getElementById('videoStatus'),
+  videoCancel: document.getElementById('videoCancel'),
+  videoStart: document.getElementById('videoStart'),
+  mapResizeHandle: document.getElementById('mapResizeHandle'),
   selectionDistanceRows: document.getElementById('selectionDistanceRows'),
   distanceWindowRows: document.getElementById('distanceWindowRows'),
   playPause: document.getElementById('playPause'),
@@ -145,7 +177,6 @@ const elements = {
   selectionClose: document.getElementById('selectionClose'),
   selectionTimeStart: document.getElementById('selectionTimeStart'),
   selectionTimeEnd: document.getElementById('selectionTimeEnd'),
-  mapSelectionHint: document.getElementById('mapSelectionHint'),
   distanceSelectionPanel: document.getElementById('distanceSelectionPanel'),
   distanceSelectionRange: document.getElementById('distanceSelectionRange'),
   distanceSelectionValues: document.getElementById('distanceSelectionValues'),
@@ -179,6 +210,7 @@ function init() {
   initChart();
   bindEvents();
   bindSelectionEditorEvents();
+  initVideoExport();
 
   for (let index = 0; index < MIN_SLOTS; index++) {
     addSlot({ refresh: false });
@@ -193,7 +225,14 @@ function getSlotIndex(slot) {
 }
 
 function getSlotColor(slot) {
-  return getTrackColor(getSlotIndex(slot));
+  return slot.color;
+}
+
+// Erste Palettenfarbe, die noch kein Slot traegt.
+function pickFreeColor() {
+  const used = new Set(state.slots.map((slot) => slot.color));
+  return TRACK_COLORS.find((color) => !used.has(color))
+    ?? TRACK_COLORS[state.slots.length % TRACK_COLORS.length];
 }
 
 function getLoadedSlots() {
@@ -222,6 +261,7 @@ function addSlot({ refresh = true } = {}) {
   const slot = {
     id: nextSlotId++,
     track: null,
+    color: pickFreeColor(),
     offsetSeconds: 0,
     distanceRange: null,
     layers: { polyline: null, marker: null, hoverMarker: null, distanceSegment: null },
@@ -237,6 +277,33 @@ function addSlot({ refresh = true } = {}) {
   }
 
   return slot;
+}
+
+function applySlotColor(slot, color) {
+  slot.color = color;
+  slot.el.card.style.setProperty('--slot-color', color);
+  slot.el.legendDot.style.background = color;
+  for (const label of [slot.el.selectionLabel, slot.el.distanceLabel]) {
+    label.style.color = color;
+  }
+
+  for (const layer of [slot.layers.polyline, slot.layers.marker, slot.layers.distanceSegment]) {
+    layer?.setStyle({ color });
+  }
+
+  const dataset = state.chart.data.datasets.find((entry) => entry.slotId === slot.id);
+  if (dataset) {
+    dataset.borderColor = color;
+    dataset.backgroundColor = color;
+    state.chart.update('none');
+  }
+
+  // Spaltenkoepfe aller Tabellen.
+  refreshActivityComparison();
+  refreshCurrentPointInspector();
+  refreshHoverInspector();
+  refreshSelectionInspector();
+  refreshDistanceSelectionInspector();
 }
 
 function removeSlot(slot) {
@@ -264,7 +331,7 @@ function buildSlotCard(slot) {
   const clone = (template) => template.content.firstElementChild.cloneNode(true);
 
   slot.el.card = clone(elements.fileCardTemplate);
-  for (const role of ['kicker', 'name', 'status', 'remove', 'file', 'progressBar', 'progressLabel',
+  for (const role of ['kicker', 'name', 'status', 'color', 'remove', 'file', 'progressBar', 'progressLabel',
     'progressValue', 'offsetGroup', 'offsetLabel', 'offsetRange', 'offsetText', 'meta']) {
     slot.el[role] = pick(slot.el.card, role);
   }
@@ -293,6 +360,7 @@ function buildSlotCard(slot) {
 function bindSlotEvents(slot) {
   slot.el.file.addEventListener('change', () => handleFileSelection(slot));
   slot.el.remove.addEventListener('click', () => removeSlot(slot));
+  slot.el.color.addEventListener('input', () => applySlotColor(slot, slot.el.color.value));
   bindTrackNameEditor(slot);
 
   slot.el.offsetRange.addEventListener('input', () => {
@@ -334,10 +402,11 @@ function syncSlotChrome() {
   const removable = state.slots.length > MIN_SLOTS;
 
   state.slots.forEach((slot, index) => {
-    const color = getTrackColor(index);
+    const color = slot.color;
     const name = getSlotDisplayName(slot);
 
     slot.el.card.style.setProperty('--slot-color', color);
+    slot.el.color.value = color;
     slot.el.kicker.textContent = `Datei ${index + 1}`;
     slot.el.remove.disabled = !removable;
     slot.el.remove.title = removable ? 'Datei entfernen' : `Mindestens ${MIN_SLOTS} Dateien`;
@@ -356,6 +425,7 @@ function syncSlotChrome() {
 
   elements.addFile.disabled = state.slots.length >= MAX_SLOTS;
   refreshActivityComparison();
+  updateVideoButton();
 }
 
 function bindEvents() {
@@ -426,6 +496,187 @@ function bindSelectionEditorEvents() {
   }
 }
 
+// ------------------------------ Video-Export ------------------------------
+
+function initVideoExport() {
+  elements.videoSpeed.innerHTML = VIDEO_SPEED_STEPS
+    .map((step) => `<option value="${step}">${step}\u00d7</option>`)
+    .join('');
+
+  elements.exportVideoButton.addEventListener('click', openVideoDialog);
+  elements.videoSpeed.addEventListener('change', updateVideoEstimate);
+  elements.videoSize.addEventListener('change', updateVideoEstimate);
+  elements.videoForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    runVideoExport();
+  });
+  elements.videoCancel.addEventListener('click', () => {
+    if (videoExportState.controller) {
+      videoExportState.controller.abort();
+    } else {
+      elements.videoDialog.close();
+    }
+  });
+  // Esc darf einen laufenden Export abbrechen, aber nicht still den Dialog schliessen.
+  elements.videoDialog.addEventListener('cancel', (event) => {
+    if (videoExportState.controller) {
+      event.preventDefault();
+      videoExportState.controller.abort();
+    }
+  });
+
+  updateVideoButton();
+}
+
+function updateVideoButton() {
+  const hasPositions = getLoadedSlots().some((slot) => slot.track.mapSamples.length);
+  let reason = '';
+  if (!isVideoExportSupported()) {
+    reason = 'Der Videoexport braucht WebCodecs (aktuelles Chrome oder Edge).';
+  } else if (!hasPositions) {
+    reason = 'Zuerst eine Datei mit GPS-Daten laden.';
+  }
+
+  elements.exportVideoButton.disabled = Boolean(reason);
+  elements.exportVideoButton.title = reason;
+}
+
+function openVideoDialog() {
+  state.isPlaying = false;
+  state.lastFrame = null;
+  elements.playPause.textContent = '\u25b6';
+
+  const preselected = VIDEO_SPEED_STEPS.find((step) => state.duration / step <= VIDEO_TARGET_SECONDS)
+    ?? VIDEO_SPEED_STEPS.at(-1);
+  elements.videoSpeed.value = String(preselected);
+
+  elements.videoProgress.classList.add('hidden');
+  elements.videoStatus.textContent = '';
+  elements.videoCancel.textContent = 'Schlie\u00dfen';
+  updateVideoEstimate();
+  elements.videoDialog.showModal();
+}
+
+function readVideoSettings() {
+  const [width, height] = elements.videoSize.value.split('x').map(Number);
+  return { speed: Number(elements.videoSpeed.value), width, height };
+}
+
+function updateVideoEstimate() {
+  const { speed, height } = readVideoSettings();
+  const seconds = state.duration / speed;
+  const bytes = (bitrateForHeight(height) * seconds) / 8;
+  const frames = Math.ceil(seconds * VIDEO_FPS);
+
+  let text = `Video: ${formatDuration(seconds)} \u00b7 ${frames.toLocaleString('de-DE')} Bilder \u00b7 bis ca. ${formatBytes(bytes)}`;
+  const tooBig = bytes > VIDEO_MAX_BYTES;
+  if (tooBig) {
+    text += ' \u2013 zu gro\u00df f\u00fcr den Arbeitsspeicher, bitte eine h\u00f6here Geschwindigkeit w\u00e4hlen.';
+  } else if (bytes > VIDEO_WARN_BYTES) {
+    text += ' \u2013 sehr gro\u00df, eine h\u00f6here Geschwindigkeit ist ratsam.';
+  }
+
+  elements.videoEstimate.textContent = text;
+  elements.videoEstimate.classList.toggle('warn', bytes > VIDEO_WARN_BYTES);
+  elements.videoStart.disabled = tooBig || !Number.isFinite(seconds) || seconds <= 0;
+}
+
+function setVideoProgress(ratio, text) {
+  elements.videoProgress.classList.remove('hidden');
+  elements.videoProgressBar.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+  elements.videoStatus.textContent = text;
+}
+
+function setVideoBusy(busy) {
+  elements.videoSpeed.disabled = busy;
+  elements.videoSize.disabled = busy;
+  elements.videoStart.disabled = busy;
+  elements.videoProgressTrack.classList.toggle('loading', busy);
+  elements.videoCancel.textContent = busy ? 'Abbrechen' : 'Schlie\u00dfen';
+  if (!busy) {
+    updateVideoEstimate();
+  }
+}
+
+async function runVideoExport() {
+  const { speed, width, height } = readVideoSettings();
+  const slots = getLoadedSlots().filter((slot) => slot.track.mapSamples.length);
+  const tracks = slots.map((slot) => ({
+    name: getSlotDisplayName(slot),
+    color: slot.color,
+    mapSamples: slot.track.mapSamples,
+    // Gleiche Zeitabbildung wie die Karte: Offsets pro Datei, und vor Start bzw.
+    // nach Ende bleibt der Marker am ersten bzw. letzten Punkt stehen.
+    positionAt: (overallTime) =>
+      interpolatePosition(slot.track.mapSamples, getSlotTime(slot, overallTime)),
+  }));
+
+  const controller = new AbortController();
+  videoExportState.controller = controller;
+  setVideoBusy(true);
+  setVideoProgress(0, 'Starte \u2026');
+
+  try {
+    const result = await exportVideo({
+      tracks,
+      duration: state.duration,
+      speed,
+      width,
+      height,
+      fps: VIDEO_FPS,
+      signal: controller.signal,
+      onProgress: ({ phase, ratio, text }) => {
+        const mapped = phase === 'tiles' ? ratio * 0.1 : phase === 'render' ? 0.1 + ratio * 0.88 : 1;
+        setVideoProgress(mapped, text);
+      },
+    });
+
+    downloadBlob(result.blob, buildVideoFileName(slots));
+    const notes = [`Fertig: ${result.codec}, ${result.frameCount.toLocaleString('de-DE')} Bilder, ${formatBytes(result.blob.size)}.`];
+    if (result.tilesFailed) {
+      notes.push(`${result.tilesFailed} von ${result.tilesTotal} Kacheln konnten nicht geladen werden, der Hintergrund ist dort leer.`);
+    }
+    setVideoProgress(1, notes.join(' '));
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      setVideoProgress(0, 'Abgebrochen \u2013 es wurde keine Datei gespeichert.');
+    } else {
+      console.error(error);
+      setVideoProgress(0, `Export fehlgeschlagen: ${error.message}`);
+    }
+  } finally {
+    videoExportState.controller = null;
+    setVideoBusy(false);
+  }
+}
+
+function buildVideoFileName(slots) {
+  const base = slots
+    .map((slot) => getSlotDisplayName(slot).replace(/\.[^.]+$/, ''))
+    .join('_vs_')
+    .replace(/[^\w\-\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df.]+/g, '_')
+    .slice(0, 80);
+  return `${base || 'aktivitaet'}.mp4`;
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+function formatBytes(bytes) {
+  if (bytes >= 1e9) {
+    return `${(bytes / 1e9).toFixed(1).replace('.', ',')} GB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+}
+
 function createMetricButtons() {
   for (const metric of METRICS) {
     const button = document.createElement('button');
@@ -451,6 +702,63 @@ function initMap() {
     maxZoom: 19,
   }).addTo(state.map);
   state.map.on('click', handleMapDistanceSelectionClick);
+  initMapResize();
+}
+
+
+// Die Karte waechst nur in der Hoehe; die Breite folgt dem Layout. Leaflet merkt
+// eine geaenderte Containergroesse nicht von selbst -- der ResizeObserver ruft
+// invalidateSize auf und deckt damit auch das Fenster-Resize mit ab.
+function initMapResize() {
+  const frame = elements.mapFrame;
+  const handle = elements.mapResizeHandle;
+  const clampHeight = (height) =>
+    Math.max(MAP_MIN_HEIGHT, Math.min(window.innerHeight * 0.9, height));
+
+  let dragStartY = null;
+  let dragStartHeight = 0;
+
+  handle.addEventListener('pointerdown', (event) => {
+    dragStartY = event.clientY;
+    dragStartHeight = frame.getBoundingClientRect().height;
+    // Schlaegt die Erfassung fehl (Zeiger schon weg), zieht der Griff trotzdem weiter,
+    // nur ohne dass Bewegungen ausserhalb von ihm ankommen.
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      // bewusst ignoriert
+    }
+    handle.classList.add('dragging');
+    event.preventDefault();
+  });
+  handle.addEventListener('pointermove', (event) => {
+    if (dragStartY === null) {
+      return;
+    }
+    frame.style.height = `${clampHeight(dragStartHeight + event.clientY - dragStartY)}px`;
+  });
+  const endDrag = () => {
+    dragStartY = null;
+    handle.classList.remove('dragging');
+  };
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+
+  // Auch per Tastatur erreichbar.
+  handle.addEventListener('keydown', (event) => {
+    const direction = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+    if (!direction) {
+      return;
+    }
+    frame.style.height = `${clampHeight(frame.getBoundingClientRect().height + direction * MAP_KEY_STEP)}px`;
+    event.preventDefault();
+  });
+
+  let pending = 0;
+  new ResizeObserver(() => {
+    cancelAnimationFrame(pending);
+    pending = requestAnimationFrame(() => state.map.invalidateSize());
+  }).observe(frame);
 }
 
 function initChart() {
@@ -544,7 +852,7 @@ async function handleFileSelection(slot) {
 
     const track = await parseFitnessFile(buffer, file);
     slot.track = track;
-    track.displayName = file.name;
+    track.displayName = track.fileName;
     slot.el.name.value = track.displayName;
     slot.el.name.classList.remove('hidden');
     clearDistanceSelectionWindow();
@@ -554,7 +862,7 @@ async function handleFileSelection(slot) {
       percent: 100,
       loading: false,
       status: 'Geladen',
-      meta: buildTrackSummary(track, file.name),
+      meta: buildTrackSummary(track, track.fileName),
     });
     recomputeTimeline();
     fitMapBounds();
@@ -603,17 +911,72 @@ function readFileWithProgress(file, slot) {
 }
 
 async function parseFitnessFile(buffer, file) {
-  const extension = file.name.split('.').pop()?.toLowerCase();
+  // Erkannt wird am Inhalt, nicht an der Endung: Browser und Umbenennen lassen
+  // beides auseinanderlaufen.
+  if (isZipBuffer(buffer)) {
+    const { name, data } = extractActivityFromZip(buffer);
+    const exact = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    return parseActivityBuffer(exact, name);
+  }
+
+  return parseActivityBuffer(buffer, file.name);
+}
+
+function parseActivityBuffer(buffer, fileName) {
+  const extension = fileName.split('.').pop()?.toLowerCase();
 
   if (extension === 'gpx') {
-    return parseGpx(buffer, file.name);
+    return parseGpx(buffer, fileName);
   }
 
   if (extension === 'fit') {
-    return parseFit(buffer, file.name);
+    return parseFit(buffer, fileName);
   }
 
-  throw new Error('Nur GPX und FIT werden unterstützt.');
+  throw new Error('Nur FIT, GPX und ZIP mit einer Aktivität werden unterstützt.');
+}
+
+function isZipBuffer(buffer) {
+  if (buffer.byteLength < 4) {
+    return false;
+  }
+
+  const [a, b, c, d] = new Uint8Array(buffer, 0, 4);
+  return a === 0x50 && b === 0x4b && c === 0x03 && d === 0x04;
+}
+
+// Unterstuetzt wird das Garmin-"Original exportieren"-ZIP mit genau einer
+// Aktivitaetsdatei. Der filter sorgt dafuer, dass nur diese eine dekomprimiert
+// wird und nicht der ganze Archivinhalt.
+function extractActivityFromZip(buffer) {
+  const seenNames = [];
+  let entries;
+  try {
+    entries = unzipSync(new Uint8Array(buffer), {
+      filter: (entry) => {
+        seenNames.push(entry.name);
+        const isMacJunk = /(^|\/)(__MACOSX\/|\._)/.test(entry.name);
+        return !isMacJunk && /\.(fit|gpx)$/i.test(entry.name);
+      },
+    });
+  } catch (error) {
+    throw new Error(`ZIP konnte nicht entpackt werden: ${error.message}`);
+  }
+
+  const names = Object.keys(entries);
+  if (!names.length) {
+    if (seenNames.some((name) => /\.zip$/i.test(name))) {
+      throw new Error('Das ZIP enthält weitere ZIP-Archive und sieht nach dem Komplett-Export aus. Bitte eine einzelne Aktivität über „Original exportieren“ laden oder die .fit-Datei entpacken.');
+    }
+    throw new Error('Im ZIP wurde keine .fit- oder .gpx-Datei gefunden.');
+  }
+
+  if (names.length > 1) {
+    throw new Error(`Das ZIP enthält ${names.length} Aktivitäten. Bitte eine einzelne Aktivität über „Original exportieren“ laden oder die gewünschte Datei entpacken.`);
+  }
+
+  const [entryName] = names;
+  return { name: entryName.split('/').pop(), data: entries[entryName] };
 }
 
 function parseGpx(buffer, fileName) {
@@ -1375,8 +1738,10 @@ function refreshChart() {
   }
 
   const origin = getTimelineOrigin();
-  state.chart.data.datasets = getLoadedSlots().map((slot) =>
-    buildDataset(slot.track, metric, getSlotColor(slot), slot.offsetSeconds, origin));
+  state.chart.data.datasets = getLoadedSlots().map((slot) => ({
+    ...buildDataset(slot.track, metric, getSlotColor(slot), slot.offsetSeconds, origin),
+    slotId: slot.id,
+  }));
   state.chart.options.scales.y.title.text = `${metric.label} (${metric.unit})`;
   state.chart.options.scales.y.suggestedMin = undefined;
   state.chart.options.scales.y.suggestedMax = undefined;
@@ -1569,13 +1934,10 @@ function interpolateTimeAtDistance(start, end, distance) {
 function refreshDistanceSelectionInspector() {
   if (!distanceInteraction.clicks.length) {
     elements.distanceSelectionPanel.classList.add('hidden');
-    elements.mapSelectionHint.textContent = 'Distanzfenster: 2\u00d7 auf den Track klicken';
-    elements.mapSelectionHint.classList.remove('active');
     return;
   }
 
   elements.distanceSelectionPanel.classList.remove('hidden');
-  elements.mapSelectionHint.classList.add('active');
 
   const firstProjections = distanceInteraction.clicks[0].projections;
   const secondProjections = distanceInteraction.clicks[1]?.projections ?? [];
@@ -1587,11 +1949,9 @@ function refreshDistanceSelectionInspector() {
   if (distanceInteraction.clicks.length < 2) {
     elements.distanceSelectionRange.textContent = 'Start gesetzt \u2013 jetzt Endpunkt w\u00e4hlen';
     elements.distanceSelectionValues.innerHTML = '';
-    elements.mapSelectionHint.textContent = 'Distanzfenster: Endpunkt auf dem Track w\u00e4hlen';
     return;
   }
 
-  elements.mapSelectionHint.textContent = 'Distanzfenster aktiv \u2013 n\u00e4chster Klick startet neu';
   for (const slot of state.slots) {
     setDistanceWindowInput(slot.el.distanceStart, slot.distanceRange?.start);
     setDistanceWindowInput(slot.el.distanceEnd, slot.distanceRange?.end);
@@ -1631,10 +1991,6 @@ function clearDistanceSelectionWindow() {
   renderDistanceSelectionLayers();
 }
 
-function getTrackColor(index) {
-  return TRACK_COLORS[index % TRACK_COLORS.length];
-}
-
 // Spalten der Vergleichstabellen: eine je geladener Datei. `index` bleibt der
 // Slot-Index, damit Aufrufer ihre Zeitfenster darüber zuordnen können.
 function getComparisonColumns() {
@@ -1644,7 +2000,7 @@ function getComparisonColumns() {
       track: slot.track,
       index,
       name: getSlotDisplayName(slot),
-      color: getTrackColor(index),
+      color: slot.color,
     }))
     .filter((column) => column.track);
 }

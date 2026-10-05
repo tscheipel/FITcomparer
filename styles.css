@@ -103,6 +103,7 @@ h1 {
 .hero-card,
 .card,
 .controls-card,
+.comparison-card,
 .map-card,
 .chart-card,
 .info-card {
@@ -181,6 +182,31 @@ h1 {
   gap: 8px;
 }
 
+.card-color {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.card-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.card-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.card-color::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
 .card-remove {
   width: 28px;
   height: 28px;
@@ -217,6 +243,7 @@ h1 {
 
 .card,
 .controls-card,
+.comparison-card,
 .map-card,
 .chart-card,
 .info-card {
@@ -485,10 +512,51 @@ select {
   box-shadow: 0 0 0 3px rgba(77, 225, 193, 0.15);
 }
 
-#map {
+/* Rahmen = Karte + Griff. Seine Hoehe ist das, was der Nutzer verstellt. */
+.map-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 540px;
+  min-height: 240px;
+}
+
+#map {
+  flex: 1;
+  min-height: 0;
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+/* Der Griff sitzt unter der Karte und nicht darueber, damit er weder die
+   Leaflet-Attribution noch den Kartenrand ueberdeckt. */
+.map-resize-handle {
+  flex: none;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  cursor: ns-resize;
+  touch-action: none;
+  border-radius: 8px;
+}
+
+.map-resize-handle::before {
+  content: "";
+  width: 56px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(159, 177, 201, 0.4);
+  transition: background 0.15s ease;
+}
+
+.map-resize-handle:hover::before,
+.map-resize-handle.dragging::before,
+.map-resize-handle:focus-visible::before {
+  background: rgba(77, 225, 193, 0.8);
+}
+
+.map-resize-handle:focus-visible {
+  outline: none;
 }
 
 .chart-wrap {
@@ -544,8 +612,43 @@ select {
   font-size: 0.84rem;
 }
 
-.comparison-card .section-header {
-  margin-bottom: 4px;
+.comparison-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.comparison-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Eigener Chevron statt des Browser-Dreiecks. */
+.comparison-summary::after {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.comparison-card[open] > .comparison-summary::after {
+  transform: rotate(-135deg);
+}
+
+.comparison-card[open] > .comparison-summary {
+  margin-bottom: 14px;
+}
+
+.comparison-heading .card-kicker {
+  display: block;
 }
 
 .comparison-title {
@@ -789,19 +892,27 @@ summary.comparison-subhead::marker {
   font-size: 0.95rem;
 }
 
+/* Teil der Karte: wandert beim Vergroessern mit und liegt in dessen Ecke.
+   Oben rechts, weil oben links der Zoom-Regler sitzt. */
+.map-legend {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  max-width: calc(100% - 90px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(8, 16, 28, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 0.86rem;
+  pointer-events: none;
+}
+
 .legend span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-
-.legend .map-selection-hint {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.legend .map-selection-hint.active {
-  color: #f4d35e;
 }
 
 .legend-dot {
@@ -888,4 +999,79 @@ summary.comparison-subhead::marker {
   .chart-wrap {
     height: 280px;
   }
+}
+
+/* ------------------------------ Video-Export-Dialog ------------------------------ */
+
+.video-dialog {
+  width: min(480px, 92vw);
+  padding: 24px;
+  background: #0c1524;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.video-dialog::backdrop {
+  background: rgba(2, 6, 12, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.video-dialog-title {
+  margin: 0 0 8px;
+  font-family: "Sora", sans-serif;
+  font-size: 1.1rem;
+}
+
+.video-dialog-note {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.video-field {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.94rem;
+}
+
+.video-estimate {
+  margin: 16px 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.video-estimate.warn {
+  color: #ffc98c;
+}
+
+.video-progress {
+  margin-top: 4px;
+}
+
+.video-status {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.video-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+#exportVideo:disabled,
+.video-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
