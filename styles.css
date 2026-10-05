@@ -150,14 +150,69 @@ h1 {
   padding: 18px;
 }
 
-.grid-2 {
+.files-card {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
   padding: 0;
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+
+/* Waechst mit der Anzahl der Dateien, statt auf zwei Spalten festgenagelt zu sein. */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 16px;
+}
+
+.add-file {
+  justify-self: start;
+}
+
+.add-file:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-remove {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.card-remove:hover:not(:disabled) {
+  background: rgba(255, 120, 140, 0.18);
+  color: #ff8fa3;
+}
+
+.card-remove:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Jede Datei ausser der ersten bekommt ihren eigenen Offset. */
+.slot-offset {
+  margin-top: 14px;
+}
+
+.slot-offset label {
+  font-size: 0.88rem;
+  margin-bottom: 8px;
 }
 
 .card,
@@ -197,14 +252,10 @@ h2 {
   white-space: nowrap;
 }
 
-.badge-a {
-  background: rgba(77, 225, 193, 0.15);
-  color: #8df3df;
-}
-
-.badge-b {
-  background: rgba(120, 166, 255, 0.15);
-  color: #c2d6ff;
+/* --slot-color setzt syncSlotChrome auf der Karte. */
+.card .badge {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--slot-color, var(--muted));
 }
 
 .file-drop {
@@ -475,33 +526,116 @@ select {
   font-family: "Sora", sans-serif;
 }
 
-.track-value-row .value-a {
-  color: #8df3df;
+.comparison-card .section-header {
+  margin-bottom: 4px;
 }
 
-.track-value-row .value-b {
-  color: #c2d6ff;
+.comparison-title {
+  margin: 2px 0 0;
+  font-family: "Sora", sans-serif;
+  font-size: 1.05rem;
 }
 
-.comparison-pair {
-  display: grid;
-  gap: 8px;
-  margin: 0 -6px 3px;
-  padding: 4px 6px;
-  border-radius: 9px;
+.comparison-block + .comparison-block {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.comparison-subhead {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
+}
+
+summary.comparison-subhead {
+  cursor: pointer;
+  user-select: none;
+}
+
+summary.comparison-subhead::marker {
+  color: var(--muted);
+}
+
+.comparison-note {
+  margin-left: 6px;
+  opacity: 0.65;
+  font-size: 0.8rem;
+}
+
+/* Bei vielen Dateien waechst die Tabelle ueber die Panelbreite hinaus. */
+.comparison-scroll {
+  overflow-x: auto;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 6px 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.comparison-table thead th {
+  font-family: "Sora", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Erste Spalte traegt die Metriknamen und bleibt beim Querscrollen stehen. */
+.comparison-table th[scope="row"],
+.comparison-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  background: linear-gradient(90deg, var(--panel) 85%, rgba(12, 21, 36, 0));
+  padding-left: 0;
+}
+
+.comparison-table tbody tr {
   transition: background 0.15s ease;
 }
 
-.comparison-pair:hover {
+.comparison-table tbody tr:hover {
   background: rgba(255, 255, 255, 0.055);
 }
 
-.comparison-pair .label {
-  transition: color 0.15s ease;
+.comparison-table tbody tr:hover th[scope="row"] {
+  color: var(--text);
 }
 
-.comparison-pair:hover .label {
-  color: var(--text);
+.comparison-table td {
+  font-family: "Sora", sans-serif;
+}
+
+.comparison-delta {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+/* Ab 2 % Abweichung ist das kein Abtastrauschen mehr. */
+.comparison-delta.strong {
+  background: rgba(255, 184, 107, 0.16);
+  color: #ffc98c;
 }
 
 .selection-card {
@@ -546,14 +680,6 @@ select {
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 600;
-}
-
-.selection-editor-label.value-a {
-  color: #8df3df;
-}
-
-.selection-editor-label.value-b {
-  color: #c2d6ff;
 }
 
 .selection-editor label {
@@ -667,12 +793,10 @@ select {
   display: inline-block;
 }
 
-.legend-dot.a {
-  background: #4de1c1;
-}
-
-.legend-dot.b {
-  background: #78a6ff;
+.legend-items {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .info-grid {

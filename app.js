@@ -11,11 +11,78 @@ const METRICS = [
 
 const SPEED_MEDIAN_RADIUS_SECONDS = 5;
 const SPEED_AVERAGE_RADIUS_SECONDS = 5;
+// Reihenfolge = Spaltenreihenfolge der Dateien. Ab der 7. Datei wird durchrotiert.
+const TRACK_COLORS = ['#4de1c1', '#78a6ff', '#ff9f5c', '#f4d35e', '#d6a7ff', '#ff8fa3'];
+
+// Zeilen der Vergleichstabellen. `session` liest den Wert, den das Gerät selbst
+// in die FIT-Datei geschrieben hat, `computed` rechnet ihn aus den Messpunkten
+// nach. Zeilen mit `window: true` erscheinen auch in den Fenster-Tabellen.
+const COMPARISON_ROWS = [
+  { label: 'Distanz', unit: 'km', decimals: 2, window: true,
+    session: (s) => s.totalDistance,
+    computed: (track, start, end) => calculateDistanceCovered(track, start, end) },
+  { label: 'Zeit', format: 'duration', window: true,
+    session: (s) => s.timerTime,
+    computed: (track, start, end) => calculateElapsedTime(track, start, end) },
+  { label: 'Verstrichene Zeit', format: 'duration',
+    session: (s) => s.elapsedTime },
+  { label: 'Stehzeit', format: 'duration', window: true,
+    computed: (track, start, end) => calculateStoppedTime(track, start, end) },
+  { label: 'Ø Geschwindigkeit', unit: 'km/h', decimals: 1, window: true,
+    session: (s) => s.avgSpeed,
+    computed: (track, start, end) => calculateAverageSpeed(track, start, end) },
+  { label: 'Max. Geschwindigkeit', unit: 'km/h', decimals: 1, window: true,
+    session: (s) => s.maxSpeed,
+    computed: (track, start, end) => maxMetric(track, start, end, 'speed') },
+  { label: 'Ø HF', unit: 'bpm', decimals: 0, window: true,
+    session: (s) => s.avgHeartRate,
+    computed: (track, start, end) => averageMetric(track, start, end, 'heartRate') },
+  { label: 'Max. HF', unit: 'bpm', decimals: 0, window: true,
+    session: (s) => s.maxHeartRate,
+    computed: (track, start, end) => maxMetric(track, start, end, 'heartRate') },
+  { label: 'Ø Power', unit: 'W', decimals: 0, window: true,
+    session: (s) => s.avgPower,
+    computed: (track, start, end) => averageMetric(track, start, end, 'power') },
+  { label: 'Max. Power', unit: 'W', decimals: 0, window: true,
+    session: (s) => s.maxPower,
+    computed: (track, start, end) => maxMetric(track, start, end, 'power') },
+  { label: 'Normalized Power', unit: 'W', decimals: 0, window: true,
+    session: (s) => s.normalizedPower,
+    computed: (track, start, end) => calculateNormalizedPower(track, start, end) },
+  { label: 'Ø Kadenz', unit: 'rpm', decimals: 0, window: true,
+    session: (s) => s.avgCadence,
+    computed: (track, start, end) => averageMetric(track, start, end, 'cadence', { ignoreZeros: true }) },
+  { label: 'Anstieg', unit: 'm', decimals: 0, window: true,
+    session: (s) => s.totalAscent,
+    computed: (track, start, end) => calculateElevationGain(track, start, end) },
+  { label: 'Abstieg', unit: 'm', decimals: 0, window: true,
+    session: (s) => s.totalDescent,
+    computed: (track, start, end) => calculateElevationLoss(track, start, end) },
+  { label: 'Min. Höhe', unit: 'm', decimals: 0, window: true,
+    session: (s) => s.minAltitude,
+    computed: (track, start, end) => minMetric(track, start, end, 'altitude') },
+  { label: 'Max. Höhe', unit: 'm', decimals: 0, window: true,
+    session: (s) => s.maxAltitude,
+    computed: (track, start, end) => maxMetric(track, start, end, 'altitude') },
+  { label: 'Kalorien', unit: 'kcal', decimals: 0, session: (s) => s.totalCalories },
+  { label: 'Arbeit', unit: 'kJ', decimals: 0,
+    session: (s) => (Number.isFinite(s.totalWork) ? s.totalWork / 1000 : null) },
+  { label: 'Training Stress Score', decimals: 1, session: (s) => s.trainingStressScore },
+  { label: 'Intensity Factor', decimals: 3, session: (s) => s.intensityFactor },
+];
+
+const WINDOW_COMPARISON_ROWS = COMPARISON_ROWS.filter((row) => row.window && row.computed);
+
+const ALTITUDE_SMOOTHING_RADIUS_SECONDS = 5;
+const METRIC_CACHE_LIMIT = 500;
 const STOPPED_SPEED_THRESHOLD_KMH = 1;
 
+const MIN_SLOTS = 2;
+const MAX_SLOTS = TRACK_COLORS.length;
+let nextSlotId = 1;
+
 const state = {
-  tracks: [null, null],
-  offsetSeconds: 0,
+  slots: [],
   selectedMetric: 'speed',
   isPlaying: false,
   playbackSpeed: 1,
@@ -24,40 +91,24 @@ const state = {
   lastFrame: null,
   map: null,
   chart: null,
+  // Pro Slot liegen die Layer am Slot selbst; global bleiben nur die beiden
+  // Marker des Distanzfensters, die zu keiner einzelnen Datei gehoeren.
   layers: {
-    polylineA: null,
-    polylineB: null,
-    markerA: null,
-    markerB: null,
-    hoverMarkerA: null,
-    hoverMarkerB: null,
-    distanceSegmentA: null,
-    distanceSegmentB: null,
     distanceStartMarker: null,
     distanceEndMarker: null,
   },
 };
 
 const elements = {
-  fileA: document.getElementById('fileA'),
-  fileB: document.getElementById('fileB'),
-  metaA: document.getElementById('metaA'),
-  metaB: document.getElementById('metaB'),
-  statusA: document.getElementById('statusA'),
-  statusB: document.getElementById('statusB'),
-  trackNameA: document.getElementById('trackNameA'),
-  trackNameB: document.getElementById('trackNameB'),
-  mapLabelA: document.getElementById('mapLabelA'),
-  mapLabelB: document.getElementById('mapLabelB'),
-  progressBarA: document.getElementById('progressBarA'),
-  progressBarB: document.getElementById('progressBarB'),
-  progressLabelA: document.getElementById('progressLabelA'),
-  progressLabelB: document.getElementById('progressLabelB'),
-  progressValueA: document.getElementById('progressValueA'),
-  progressValueB: document.getElementById('progressValueB'),
-  offset: document.getElementById('offset'),
-  offsetText: document.getElementById('offsetText'),
-  offsetLabel: document.getElementById('offsetLabel'),
+  fileCards: document.getElementById('fileCards'),
+  addFile: document.getElementById('addFile'),
+  fileCardTemplate: document.getElementById('fileCardTemplate'),
+  legendItemTemplate: document.getElementById('legendItemTemplate'),
+  selectionRowTemplate: document.getElementById('selectionRowTemplate'),
+  distanceRowTemplate: document.getElementById('distanceRowTemplate'),
+  mapLegend: document.getElementById('mapLegend'),
+  selectionDistanceRows: document.getElementById('selectionDistanceRows'),
+  distanceWindowRows: document.getElementById('distanceWindowRows'),
   playPause: document.getElementById('playPause'),
   resetPlayback: document.getElementById('resetPlayback'),
   speed: document.getElementById('speed'),
@@ -65,6 +116,10 @@ const elements = {
   currentTimeLabel: document.getElementById('currentTimeLabel'),
   durationLabel: document.getElementById('durationLabel'),
   metricSwitcher: document.getElementById('metricSwitcher'),
+  comparisonPanel: document.getElementById('comparisonPanel'),
+  deviceComparison: document.getElementById('deviceComparison'),
+  deviceComparisonValues: document.getElementById('deviceComparisonValues'),
+  computedComparisonValues: document.getElementById('computedComparisonValues'),
   chart: document.getElementById('chart'),
   currentPointTime: document.getElementById('currentPointTime'),
   currentPointValues: document.getElementById('currentPointValues'),
@@ -76,23 +131,11 @@ const elements = {
   selectionClose: document.getElementById('selectionClose'),
   selectionTimeStart: document.getElementById('selectionTimeStart'),
   selectionTimeEnd: document.getElementById('selectionTimeEnd'),
-  selectionDistanceAStart: document.getElementById('selectionDistanceAStart'),
-  selectionDistanceAEnd: document.getElementById('selectionDistanceAEnd'),
-  selectionDistanceBStart: document.getElementById('selectionDistanceBStart'),
-  selectionDistanceBEnd: document.getElementById('selectionDistanceBEnd'),
-  selectionLabelA: document.getElementById('selectionLabelA'),
-  selectionLabelB: document.getElementById('selectionLabelB'),
   mapSelectionHint: document.getElementById('mapSelectionHint'),
   distanceSelectionPanel: document.getElementById('distanceSelectionPanel'),
   distanceSelectionRange: document.getElementById('distanceSelectionRange'),
   distanceSelectionValues: document.getElementById('distanceSelectionValues'),
   distanceSelectionClose: document.getElementById('distanceSelectionClose'),
-  distanceWindowAStart: document.getElementById('distanceWindowAStart'),
-  distanceWindowAEnd: document.getElementById('distanceWindowAEnd'),
-  distanceWindowBStart: document.getElementById('distanceWindowBStart'),
-  distanceWindowBEnd: document.getElementById('distanceWindowBEnd'),
-  distanceSelectionLabelA: document.getElementById('distanceSelectionLabelA'),
-  distanceSelectionLabelB: document.getElementById('distanceSelectionLabelB'),
 };
 
 const METRIC_BUTTONS = new Map();
@@ -109,9 +152,9 @@ const chartInteraction = {
   dragPointerId: null,
 };
 
+// Die Fenstergrenzen je Datei haengen am Slot (slot.distanceRange).
 const distanceInteraction = {
   clicks: [],
-  ranges: [null, null],
 };
 
 init();
@@ -121,38 +164,188 @@ function init() {
   initMap();
   initChart();
   bindEvents();
-  resetMapLabels();
-  updateOffsetDisplay();
+  bindSelectionEditorEvents();
+
+  for (let index = 0; index < MIN_SLOTS; index++) {
+    addSlot({ refresh: false });
+  }
+
+  syncSlotChrome();
   renderEmptyState();
 }
 
-function bindEvents() {
-  elements.fileA.addEventListener('change', () => handleFileSelection(0));
-  elements.fileB.addEventListener('change', () => handleFileSelection(1));
-  bindTrackNameEditor(elements.trackNameA, 0);
-  bindTrackNameEditor(elements.trackNameB, 1);
-  elements.offset.addEventListener('input', () => {
-    state.offsetSeconds = Number(elements.offset.value);
-    updateOffsetDisplay();
+function getSlotIndex(slot) {
+  return state.slots.indexOf(slot);
+}
+
+function getSlotColor(slot) {
+  return getTrackColor(getSlotIndex(slot));
+}
+
+function getLoadedSlots() {
+  return state.slots.filter((slot) => slot.track);
+}
+
+function getSlotDisplayName(slot) {
+  return slot.track?.displayName?.trim() || slot.track?.fileName || `Datei ${getSlotIndex(slot) + 1}`;
+}
+
+// Slot 0 ist der Zeitbezug und bleibt bei 0. Ein negativer Offset zieht den
+// gemeinsamen Nullpunkt nach vorne, damit nichts links aus der Achse faellt.
+function getTimelineOrigin() {
+  return Math.min(0, ...state.slots.map((slot) => slot.offsetSeconds));
+}
+
+function getSlotTime(slot, overallTime) {
+  return overallTime + getTimelineOrigin() - slot.offsetSeconds;
+}
+
+function addSlot({ refresh = true } = {}) {
+  if (state.slots.length >= MAX_SLOTS) {
+    return null;
+  }
+
+  const slot = {
+    id: nextSlotId++,
+    track: null,
+    offsetSeconds: 0,
+    distanceRange: null,
+    layers: { polyline: null, marker: null, hoverMarker: null, distanceSegment: null },
+    el: {},
+  };
+
+  state.slots.push(slot);
+  buildSlotCard(slot);
+
+  if (refresh) {
+    syncSlotChrome();
+    recomputeTimeline();
+  }
+
+  return slot;
+}
+
+function removeSlot(slot) {
+  if (state.slots.length <= MIN_SLOTS) {
+    return;
+  }
+
+  for (const name of Object.keys(slot.layers)) {
+    clearSlotLayer(slot, name);
+  }
+
+  for (const node of [slot.el.card, slot.el.legend, slot.el.selectionRow, slot.el.distanceRow]) {
+    node.remove();
+  }
+
+  state.slots.splice(getSlotIndex(slot), 1);
+  clearDistanceSelectionWindow();
+  syncSlotChrome();
+  recomputeTimeline();
+  fitMapBounds();
+}
+
+function buildSlotCard(slot) {
+  const pick = (root, role) => root.querySelector(`[data-role="${role}"]`);
+  const clone = (template) => template.content.firstElementChild.cloneNode(true);
+
+  slot.el.card = clone(elements.fileCardTemplate);
+  for (const role of ['kicker', 'name', 'status', 'remove', 'file', 'progressBar', 'progressLabel',
+    'progressValue', 'offsetGroup', 'offsetLabel', 'offsetRange', 'offsetText', 'meta']) {
+    slot.el[role] = pick(slot.el.card, role);
+  }
+  elements.fileCards.appendChild(slot.el.card);
+
+  slot.el.legend = clone(elements.legendItemTemplate);
+  slot.el.legendDot = pick(slot.el.legend, 'dot');
+  slot.el.legendLabel = pick(slot.el.legend, 'label');
+  elements.mapLegend.appendChild(slot.el.legend);
+
+  slot.el.selectionRow = clone(elements.selectionRowTemplate);
+  slot.el.selectionLabel = pick(slot.el.selectionRow, 'label');
+  slot.el.selectionStart = pick(slot.el.selectionRow, 'start');
+  slot.el.selectionEnd = pick(slot.el.selectionRow, 'end');
+  elements.selectionDistanceRows.appendChild(slot.el.selectionRow);
+
+  slot.el.distanceRow = clone(elements.distanceRowTemplate);
+  slot.el.distanceLabel = pick(slot.el.distanceRow, 'label');
+  slot.el.distanceStart = pick(slot.el.distanceRow, 'start');
+  slot.el.distanceEnd = pick(slot.el.distanceRow, 'end');
+  elements.distanceWindowRows.appendChild(slot.el.distanceRow);
+
+  bindSlotEvents(slot);
+}
+
+function bindSlotEvents(slot) {
+  slot.el.file.addEventListener('change', () => handleFileSelection(slot));
+  slot.el.remove.addEventListener('click', () => removeSlot(slot));
+  bindTrackNameEditor(slot);
+
+  slot.el.offsetRange.addEventListener('input', () => {
+    slot.offsetSeconds = Number(slot.el.offsetRange.value);
+    updateOffsetDisplay(slot);
     recomputeTimeline();
   });
-  elements.offsetText.addEventListener('change', () => {
-    const parsed = parseOffsetText(elements.offsetText.value);
+  slot.el.offsetText.addEventListener('change', () => {
+    const parsed = parseOffsetText(slot.el.offsetText.value);
     if (parsed === null) {
-      updateOffsetDisplay();
+      updateOffsetDisplay(slot);
       return;
     }
 
-    state.offsetSeconds = parsed;
-    elements.offset.value = String(parsed);
-    updateOffsetDisplay();
+    slot.offsetSeconds = parsed;
+    slot.el.offsetRange.value = String(parsed);
+    updateOffsetDisplay(slot);
     recomputeTimeline();
   });
-  elements.offsetText.addEventListener('keydown', (event) => {
+  slot.el.offsetText.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
-      elements.offsetText.blur();
+      slot.el.offsetText.blur();
     }
   });
+
+  for (const [input, boundary] of [[slot.el.selectionStart, 'start'], [slot.el.selectionEnd, 'end']]) {
+    input.addEventListener('change', () => applySelectionDistanceValue(slot, input, boundary));
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        input.blur();
+      }
+    });
+  }
+}
+
+// Alles, was von Anzahl und Reihenfolge der Slots abhängt: Nummerierung, Farben,
+// Entfernen-Buttons, Offset-Sichtbarkeit und sämtliche Beschriftungen.
+function syncSlotChrome() {
+  const removable = state.slots.length > MIN_SLOTS;
+
+  state.slots.forEach((slot, index) => {
+    const color = getTrackColor(index);
+    const name = getSlotDisplayName(slot);
+
+    slot.el.card.style.setProperty('--slot-color', color);
+    slot.el.kicker.textContent = `Datei ${index + 1}`;
+    slot.el.remove.disabled = !removable;
+    slot.el.remove.title = removable ? 'Datei entfernen' : `Mindestens ${MIN_SLOTS} Dateien`;
+
+    slot.el.offsetGroup.classList.toggle('hidden', index === 0);
+    slot.el.offsetLabel.textContent = `Start-Offset ${name}`;
+
+    slot.el.legendDot.style.background = color;
+    slot.el.legendLabel.textContent = name;
+
+    for (const element of [slot.el.selectionLabel, slot.el.distanceLabel]) {
+      element.textContent = `${name} (km)`;
+      element.style.color = color;
+    }
+  });
+
+  elements.addFile.disabled = state.slots.length >= MAX_SLOTS;
+  refreshActivityComparison();
+}
+
+function bindEvents() {
+  elements.addFile.addEventListener('click', () => addSlot());
   elements.playPause.addEventListener('click', togglePlayback);
   elements.resetPlayback.addEventListener('click', resetPlayback);
   elements.speed.addEventListener('change', () => {
@@ -161,20 +354,20 @@ function bindEvents() {
   elements.progress.addEventListener('input', () => {
     state.currentTime = Number(elements.progress.value);
     state.isPlaying = false;
-    elements.playPause.textContent = '▶';
+    elements.playPause.textContent = '\u25b6';
     updateVisuals();
   });
   elements.selectionClose.addEventListener('click', clearSelectionWindow);
   elements.distanceSelectionClose.addEventListener('click', clearDistanceSelectionWindow);
-  bindSelectionEditorEvents();
 }
 
-function bindTrackNameEditor(input, index) {
-  input.addEventListener('input', () => updateTrackDisplayName(index, input.value));
+function bindTrackNameEditor(slot) {
+  const input = slot.el.name;
+  input.addEventListener('input', () => updateTrackDisplayName(slot, input.value));
   input.addEventListener('change', () => {
     if (!input.value.trim()) {
-      input.value = state.tracks[index]?.fileName ?? `Datei ${index + 1}`;
-      updateTrackDisplayName(index, input.value);
+      input.value = slot.track?.fileName ?? `Datei ${getSlotIndex(slot) + 1}`;
+      updateTrackDisplayName(slot, input.value);
     }
   });
   input.addEventListener('keydown', (event) => {
@@ -185,17 +378,8 @@ function bindTrackNameEditor(input, index) {
 }
 
 function bindSelectionEditorEvents() {
-  const editors = [
-    [elements.selectionTimeStart, 'start', null],
-    [elements.selectionTimeEnd, 'end', null],
-    [elements.selectionDistanceAStart, 'start', 0],
-    [elements.selectionDistanceAEnd, 'end', 0],
-    [elements.selectionDistanceBStart, 'start', 1],
-    [elements.selectionDistanceBEnd, 'end', 1],
-  ];
-
-  for (const [input, boundary, trackIndex] of editors) {
-    input.addEventListener('change', () => applySelectionEditorValue(input, boundary, trackIndex));
+  for (const [input, boundary] of [[elements.selectionTimeStart, 'start'], [elements.selectionTimeEnd, 'end']]) {
+    input.addEventListener('change', () => applySelectionTimeValue(input, boundary));
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         input.blur();
@@ -296,24 +480,23 @@ function initChart() {
   elements.chart.addEventListener('pointerleave', handleChartPointerLeave);
 }
 
-async function handleFileSelection(index) {
-  const input = index === 0 ? elements.fileA : elements.fileB;
-  const file = input.files?.[0];
+async function handleFileSelection(slot) {
+  const file = slot.el.file.files?.[0];
   if (!file) {
     return;
   }
 
-  setLoadingState(index, {
+  setLoadingState(slot, {
     phase: 'Lese Datei',
     percent: 5,
     loading: true,
-    status: 'Lädt ...',
+    status: 'L\u00e4dt ...',
     meta: `${file.name} wird gelesen ...`,
   });
 
   try {
-    const buffer = await readFileWithProgress(file, index);
-    setLoadingState(index, {
+    const buffer = await readFileWithProgress(file, slot);
+    setLoadingState(slot, {
       phase: 'Analysiere Datei',
       percent: 90,
       loading: true,
@@ -322,14 +505,13 @@ async function handleFileSelection(index) {
     });
 
     const track = await parseFitnessFile(buffer, file);
-    state.tracks[index] = track;
+    slot.track = track;
     track.displayName = file.name;
-    const nameInput = index === 0 ? elements.trackNameA : elements.trackNameB;
-    nameInput.value = track.displayName;
-    nameInput.classList.remove('hidden');
+    slot.el.name.value = track.displayName;
+    slot.el.name.classList.remove('hidden');
     clearDistanceSelectionWindow();
-    updateTrackDisplayName(index, track.displayName);
-    setLoadingState(index, {
+    syncSlotChrome();
+    setLoadingState(slot, {
       phase: 'Fertig',
       percent: 100,
       loading: false,
@@ -340,12 +522,11 @@ async function handleFileSelection(index) {
     fitMapBounds();
   } catch (error) {
     console.error(error);
-    state.tracks[index] = null;
-    const nameInput = index === 0 ? elements.trackNameA : elements.trackNameB;
-    nameInput.value = '';
-    nameInput.classList.add('hidden');
-    setMapLabel(index, index === 0 ? 'Datei 1' : 'Datei 2');
-    setLoadingState(index, {
+    slot.track = null;
+    slot.el.name.value = '';
+    slot.el.name.classList.add('hidden');
+    syncSlotChrome();
+    setLoadingState(slot, {
       phase: 'Fehler',
       percent: 0,
       loading: false,
@@ -356,10 +537,10 @@ async function handleFileSelection(index) {
   }
 }
 
-function readFileWithProgress(file, index) {
+function readFileWithProgress(file, slot) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    updateProgress(index, 5, 'Lese Datei');
+    updateProgress(slot, 5, 'Lese Datei');
 
     reader.onprogress = (event) => {
       if (!event.lengthComputable) {
@@ -367,11 +548,11 @@ function readFileWithProgress(file, index) {
       }
 
       const percent = Math.min(85, Math.max(10, Math.round((event.loaded / event.total) * 80)));
-      updateProgress(index, percent, 'Lese Datei');
+      updateProgress(slot, percent, 'Lese Datei');
     };
 
     reader.onload = () => {
-      updateProgress(index, 90, 'Daten geladen');
+      updateProgress(slot, 90, 'Daten geladen');
       resolve(reader.result);
     };
 
@@ -440,9 +621,9 @@ function parseGpx(buffer, fileName) {
 async function parseFit(buffer, fileName) {
   const parser = new FitParser({
     force: true,
-    speedUnit: 'kmh',
+    speedUnit: 'km/h',
     lengthUnit: 'km',
-    temperatureUnit: 'celsius',
+    temperatureUnit: '°C',
     elapsedRecordField: true,
     mode: 'both',
   });
@@ -459,7 +640,7 @@ async function parseFit(buffer, fileName) {
     throw new Error(`In ${fileName} wurden keine verwertbaren FIT-Records gefunden.`);
   }
 
-  return createTrack(normalized, normalized.filter(hasCoordinates), fileName, 'FIT');
+  return createTrack(normalized, normalized.filter(hasCoordinates), fileName, 'FIT', readFitSession(parsed));
 }
 
 function normalizeSamples(rawSamples, keepAbsoluteTime = false) {
@@ -516,7 +697,37 @@ function normalizeSamples(rawSamples, keepAbsoluteTime = false) {
     };
   });
 
-  return smoothSpeeds(normalized);
+  return smoothAltitudes(smoothSpeeds(normalized));
+}
+
+// Die Hoehe kommt mit 0,2 m Quantisierung bei 1 Hz. Ohne Glaettung zaehlt jedes
+// Rauschkorn als Anstieg: die naive Summe liegt dadurch ueber alle vier
+// Referenzdateien rund 5 % ueber session.total_ascent. Ein gleitender Mittelwert
+// ueber +-5 s drueckt den Fehler auf unter 2 %. Das rohe `altitude` bleibt
+// erhalten, damit Chart und Inspector weiter den Messwert zeigen.
+function smoothAltitudes(samples) {
+  return samples.map((sample, index) => {
+    const minimumTime = sample.t - ALTITUDE_SMOOTHING_RADIUS_SECONDS;
+    const maximumTime = sample.t + ALTITUDE_SMOOTHING_RADIUS_SECONDS;
+    let sum = 0;
+    let count = 0;
+
+    for (let candidateIndex = index; candidateIndex >= 0 && samples[candidateIndex].t >= minimumTime; candidateIndex--) {
+      if (Number.isFinite(samples[candidateIndex].altitude)) {
+        sum += samples[candidateIndex].altitude;
+        count++;
+      }
+    }
+
+    for (let candidateIndex = index + 1; candidateIndex < samples.length && samples[candidateIndex].t <= maximumTime; candidateIndex++) {
+      if (Number.isFinite(samples[candidateIndex].altitude)) {
+        sum += samples[candidateIndex].altitude;
+        count++;
+      }
+    }
+
+    return { ...sample, smoothedAltitude: count ? sum / count : null };
+  });
 }
 
 function smoothSpeeds(samples) {
@@ -589,7 +800,30 @@ function collectFitSamples(root) {
   return collected;
 }
 
+// fit-file-parser liefert im Modus 'both' die Records flach unter `records` und
+// zusaetzlich verschachtelt unter activity.sessions[].laps[].records. Wir greifen
+// gezielt darauf zu. Die alte Heuristik (searchFitRecordGroups) sammelte jedes
+// Array ein, dessen Eintraege ein `timestamp`-Feld haben -- und erwischte damit
+// auch events, device_infos, laps und sessions. Die landeten als Samples ohne
+// jeden Messwert im Schrieb und rissen Loecher in die Distanz- und Speed-Kette.
 function findFitRecordGroups(root) {
+  if (Array.isArray(root?.records) && root.records.length) {
+    return [root.records];
+  }
+
+  const nested = (root?.activity?.sessions ?? [])
+    .flatMap((session) => session?.laps ?? [])
+    .map((lap) => lap?.records)
+    .filter((records) => Array.isArray(records) && records.length);
+
+  if (nested.length) {
+    return nested;
+  }
+
+  return searchFitRecordGroups(root);
+}
+
+function searchFitRecordGroups(root) {
   const groups = [];
   const queue = [root];
   const visited = new Set();
@@ -636,6 +870,41 @@ function findFitRecordGroups(root) {
   return groups;
 }
 
+// Garmin Connect zeigt nicht die Records an, sondern die Summen, die der Kopf
+// selbst in die session-Message schreibt. Die weichen systematisch ab: avg_power
+// stammt aus einem internen Arbeits-Konto, das schneller als 1 Hz abtastet.
+function readFitSession(root) {
+  const session = root?.sessions?.[0] ?? root?.activity?.sessions?.[0] ?? null;
+  if (!session) {
+    return null;
+  }
+
+  // parseFit setzt lengthUnit 'km', deshalb kommen total_distance, total_ascent,
+  // total_descent und die Hoehenfelder bereits in Kilometern an.
+  return {
+    totalDistance: pickNumber(session, ['total_distance']),
+    timerTime: pickNumber(session, ['total_timer_time']),
+    elapsedTime: pickNumber(session, ['total_elapsed_time']),
+    avgSpeed: pickNumber(session, ['enhanced_avg_speed', 'avg_speed']),
+    maxSpeed: pickNumber(session, ['enhanced_max_speed', 'max_speed']),
+    avgHeartRate: pickNumber(session, ['avg_heart_rate']),
+    maxHeartRate: pickNumber(session, ['max_heart_rate']),
+    avgPower: pickNumber(session, ['avg_power']),
+    maxPower: pickNumber(session, ['max_power']),
+    normalizedPower: pickNumber(session, ['normalized_power']),
+    avgCadence: pickNumber(session, ['avg_cadence']),
+    maxCadence: pickNumber(session, ['max_cadence']),
+    totalAscent: kilometersToMeters(pickNumber(session, ['total_ascent'])),
+    totalDescent: kilometersToMeters(pickNumber(session, ['total_descent'])),
+    minAltitude: kilometersToMeters(pickNumber(session, ['enhanced_min_altitude', 'min_altitude'])),
+    maxAltitude: kilometersToMeters(pickNumber(session, ['enhanced_max_altitude', 'max_altitude'])),
+    totalCalories: pickNumber(session, ['total_calories']),
+    totalWork: pickNumber(session, ['total_work']),
+    trainingStressScore: pickNumber(session, ['training_stress_score']),
+    intensityFactor: pickNumber(session, ['intensity_factor']),
+  };
+}
+
 function extractFitSample(record) {
   const timestamp = parseTimestamp(record.timestamp);
   if (!timestamp) {
@@ -657,12 +926,14 @@ function extractFitSample(record) {
   };
 }
 
-function createTrack(samples, mapSamples, fileName, source) {
+function createTrack(samples, mapSamples, fileName, source, session = null) {
   const startTime = samples[0].t;
   const endTime = samples[samples.length - 1].t;
   return {
     fileName,
     source,
+    session,
+    metricCache: new Map(),
     samples,
     mapSamples,
     startTime,
@@ -780,17 +1051,16 @@ function toRadians(value) {
 }
 
 function recomputeTimeline() {
-  const trackA = state.tracks[0];
-  const trackB = state.tracks[1];
-  if (!trackA && !trackB) {
+  if (!getLoadedSlots().length) {
     renderEmptyState();
     return;
   }
 
-  const origin = Math.min(0, state.offsetSeconds);
-  const adjustedEndA = trackA ? trackA.endTime - origin : 0;
-  const adjustedEndB = trackB ? trackB.endTime + state.offsetSeconds - origin : 0;
-  state.duration = Math.max(adjustedEndA, adjustedEndB);
+  const origin = getTimelineOrigin();
+  state.duration = Math.max(
+    0,
+    ...state.slots.map((slot) => (slot.track ? slot.track.endTime + slot.offsetSeconds - origin : 0))
+  );
   elements.progress.max = String(Math.max(state.duration, 0.1));
   elements.durationLabel.textContent = formatDuration(state.duration);
 
@@ -815,46 +1085,31 @@ function updatePlaybackLabels() {
 }
 
 function updateMapLayers() {
-  const trackA = state.tracks[0];
-  const trackB = state.tracks[1];
-  const origin = Math.min(0, state.offsetSeconds);
+  for (const slot of state.slots) {
+    clearSlotLayer(slot, 'polyline');
+    clearSlotLayer(slot, 'marker');
 
-  clearMapLayer('polylineA');
-  clearMapLayer('polylineB');
-  clearMapLayer('markerA');
-  clearMapLayer('markerB');
-
-  if (trackA) {
-    const coordsA = trackA.mapSamples.map((sample) => [sample.lat, sample.lon]);
-    if (coordsA.length) {
-      state.layers.polylineA = L.polyline(coordsA, { color: '#4de1c1', weight: 4, opacity: 0.9 }).addTo(state.map);
-      const positionA = interpolatePosition(trackA.mapSamples, state.currentTime + origin);
-      if (positionA) {
-        state.layers.markerA = L.circleMarker([positionA.lat, positionA.lon], {
-          radius: 8,
-          color: '#4de1c1',
-          weight: 3,
-          fillColor: '#06131b',
-          fillOpacity: 1,
-        }).addTo(state.map);
-      }
+    if (!slot.track) {
+      continue;
     }
-  }
 
-  if (trackB) {
-    const coordsB = trackB.mapSamples.map((sample) => [sample.lat, sample.lon]);
-    if (coordsB.length) {
-      state.layers.polylineB = L.polyline(coordsB, { color: '#78a6ff', weight: 4, opacity: 0.9 }).addTo(state.map);
-      const positionB = interpolatePosition(trackB.mapSamples, state.currentTime + origin - state.offsetSeconds);
-      if (positionB) {
-        state.layers.markerB = L.circleMarker([positionB.lat, positionB.lon], {
-          radius: 8,
-          color: '#78a6ff',
-          weight: 3,
-          fillColor: '#06131b',
-          fillOpacity: 1,
-        }).addTo(state.map);
-      }
+    const coordinates = slot.track.mapSamples.map((sample) => [sample.lat, sample.lon]);
+    if (!coordinates.length) {
+      continue;
+    }
+
+    const color = getSlotColor(slot);
+    slot.layers.polyline = L.polyline(coordinates, { color, weight: 4, opacity: 0.9 }).addTo(state.map);
+
+    const position = interpolatePosition(slot.track.mapSamples, getSlotTime(slot, state.currentTime));
+    if (position) {
+      slot.layers.marker = L.circleMarker([position.lat, position.lon], {
+        radius: 8,
+        color,
+        weight: 3,
+        fillColor: '#06131b',
+        fillOpacity: 1,
+      }).addTo(state.map);
     }
   }
 
@@ -863,8 +1118,8 @@ function updateMapLayers() {
 }
 
 function handleMapDistanceSelectionClick(event) {
-  const nearestByTrack = state.tracks.map((track) => findNearestMapSample(track, event.latlng));
-  const nearestDistance = Math.min(...nearestByTrack.map((result) => result?.pixelDistance ?? Infinity));
+  const nearestBySlot = state.slots.map((slot) => findNearestMapSample(slot.track, event.latlng));
+  const nearestDistance = Math.min(...nearestBySlot.map((result) => result?.pixelDistance ?? Infinity));
   if (nearestDistance > 30) {
     return;
   }
@@ -873,19 +1128,22 @@ function handleMapDistanceSelectionClick(event) {
     clearDistanceSelectionWindow();
   }
 
-  const projections = nearestByTrack.map((result) =>
+  const projections = nearestBySlot.map((result) =>
     result && result.pixelDistance <= 60 ? result.sample : null
   );
   distanceInteraction.clicks.push({ latlng: event.latlng, projections });
 
   if (distanceInteraction.clicks.length === 2) {
-    for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
-      const first = distanceInteraction.clicks[0].projections[trackIndex];
-      const second = distanceInteraction.clicks[1].projections[trackIndex];
-      distanceInteraction.ranges[trackIndex] = first && second
-        ? { start: first.distance <= second.distance ? first : second, end: first.distance <= second.distance ? second : first }
+    state.slots.forEach((slot, index) => {
+      const first = distanceInteraction.clicks[0].projections[index];
+      const second = distanceInteraction.clicks[1].projections[index];
+      slot.distanceRange = first && second
+        ? {
+          start: first.distance <= second.distance ? first : second,
+          end: first.distance <= second.distance ? second : first,
+        }
         : null;
-    }
+    });
   }
 
   refreshDistanceSelectionInspector();
@@ -913,26 +1171,22 @@ function findNearestMapSample(track, latlng) {
 }
 
 function renderDistanceSelectionLayers() {
-  clearMapLayer('distanceSegmentA');
-  clearMapLayer('distanceSegmentB');
   clearMapLayer('distanceStartMarker');
   clearMapLayer('distanceEndMarker');
 
-  const colors = ['#4de1c1', '#78a6ff'];
-  for (let trackIndex = 0; trackIndex < 2; trackIndex++) {
-    const range = distanceInteraction.ranges[trackIndex];
-    const track = state.tracks[trackIndex];
-    if (!range || !track) {
+  for (const slot of state.slots) {
+    clearSlotLayer(slot, 'distanceSegment');
+    const range = slot.distanceRange;
+    if (!range || !slot.track) {
       continue;
     }
 
-    const coordinates = track.mapSamples
+    const coordinates = slot.track.mapSamples
       .filter((sample) => sample.t >= range.start.t && sample.t <= range.end.t)
       .map((sample) => [sample.lat, sample.lon]);
     if (coordinates.length >= 2) {
-      const layerName = trackIndex === 0 ? 'distanceSegmentA' : 'distanceSegmentB';
-      state.layers[layerName] = L.polyline(coordinates, {
-        color: colors[trackIndex],
+      slot.layers.distanceSegment = L.polyline(coordinates, {
+        color: getSlotColor(slot),
         weight: 9,
         opacity: 0.48,
       }).addTo(state.map);
@@ -952,19 +1206,21 @@ function renderDistanceSelectionLayers() {
 }
 
 function updateHoverMapMarkers() {
-  clearMapLayer('hoverMarkerA');
-  clearMapLayer('hoverMarkerB');
+  for (const slot of state.slots) {
+    clearSlotLayer(slot, 'hoverMarker');
+  }
 
   if (chartInteraction.hoverTime === null) {
     return;
   }
 
-  const origin = Math.min(0, state.offsetSeconds);
-  addHoverMapMarker('hoverMarkerA', state.tracks[0], chartInteraction.hoverTime + origin);
-  addHoverMapMarker('hoverMarkerB', state.tracks[1], chartInteraction.hoverTime + origin - state.offsetSeconds);
+  for (const slot of state.slots) {
+    addHoverMapMarker(slot, getSlotTime(slot, chartInteraction.hoverTime));
+  }
 }
 
-function addHoverMapMarker(layerName, track, time) {
+function addHoverMapMarker(slot, time) {
+  const track = slot.track;
   if (!track?.mapSamples.length || time < track.mapSamples[0].t || time > track.mapSamples[track.mapSamples.length - 1].t) {
     return;
   }
@@ -974,7 +1230,7 @@ function addHoverMapMarker(layerName, track, time) {
     return;
   }
 
-  state.layers[layerName] = L.circleMarker([position.lat, position.lon], {
+  slot.layers.hoverMarker = L.circleMarker([position.lat, position.lon], {
     radius: 4,
     color: '#ffffff',
     weight: 1,
@@ -991,13 +1247,21 @@ function clearMapLayer(layerName) {
   }
 }
 
+function clearSlotLayer(slot, layerName) {
+  const layer = slot.layers[layerName];
+  if (layer) {
+    layer.remove();
+    slot.layers[layerName] = null;
+  }
+}
+
 function fitMapBounds() {
   const points = [];
-  for (const track of state.tracks) {
-    if (!track) {
+  for (const slot of state.slots) {
+    if (!slot.track) {
       continue;
     }
-    for (const sample of track.mapSamples) {
+    for (const sample of slot.track.mapSamples) {
       points.push([sample.lat, sample.lon]);
     }
   }
@@ -1056,18 +1320,9 @@ function refreshChart() {
     return;
   }
 
-  const origin = Math.min(0, state.offsetSeconds);
-  const datasets = [];
-
-  if (state.tracks[0]) {
-    datasets.push(buildDataset(state.tracks[0], metric, '#4de1c1', 0, origin));
-  }
-
-  if (state.tracks[1]) {
-    datasets.push(buildDataset(state.tracks[1], metric, '#78a6ff', state.offsetSeconds, origin));
-  }
-
-  state.chart.data.datasets = datasets;
+  const origin = getTimelineOrigin();
+  state.chart.data.datasets = getLoadedSlots().map((slot) =>
+    buildDataset(slot.track, metric, getSlotColor(slot), slot.offsetSeconds, origin));
   state.chart.options.scales.y.title.text = `${metric.label} (${metric.unit})`;
   state.chart.options.scales.y.suggestedMin = undefined;
   state.chart.options.scales.y.suggestedMax = undefined;
@@ -1102,47 +1357,38 @@ function getChartPointerPixelX(event) {
 }
 
 function refreshCurrentPointInspector() {
-  const origin = Math.min(0, state.offsetSeconds);
-  const timeA = state.currentTime + origin;
-  const timeB = state.currentTime + origin - state.offsetSeconds;
-  const metric = getActiveMetric();
-  const trackAValue = getTrackValueAtTime(state.tracks[0], timeA);
-  const trackBValue = getTrackValueAtTime(state.tracks[1], timeB);
-  const nameA = getTrackDisplayName(0);
-  const nameB = getTrackDisplayName(1);
-
+  const slots = getLoadedSlots();
   elements.currentPointTime.textContent = formatDuration(state.currentTime);
-  elements.currentPointValues.innerHTML = `
-    ${formatValueRow(`HR ${nameA}`, trackAValue?.heartRate, 'bpm', 'value-a')}
-    ${formatValueRow(`HR ${nameB}`, trackBValue?.heartRate, 'bpm', 'value-b')}
-    ${formatValueRow(`Power ${nameA}`, trackAValue?.power, 'W', 'value-a')}
-    ${formatValueRow(`Power ${nameB}`, trackBValue?.power, 'W', 'value-b')}
-    ${formatValueRow(`Geschw. ${nameA}`, trackAValue?.speed, 'km/h', 'value-a')}
-    ${formatValueRow(`Geschw. ${nameB}`, trackBValue?.speed, 'km/h', 'value-b')}
-  `;
+  elements.currentPointValues.innerHTML = ['heartRate', 'power', 'speed']
+    .flatMap((key) => {
+      const metric = METRICS.find((entry) => entry.key === key);
+      return slots.map((slot) => formatValueRow(
+        `${metric.label} ${getSlotDisplayName(slot)}`,
+        getTrackValueAtTime(slot.track, getSlotTime(slot, state.currentTime))?.[key],
+        metric.unit,
+        getSlotColor(slot)
+      ));
+    })
+    .join('');
 }
 
 function refreshHoverInspector() {
   if (chartInteraction.hoverTime === null) {
     elements.hoverPointTime.textContent = '-';
-    elements.hoverPointValues.innerHTML = '<div class="track-value-row"><span class="label">Maus über den Graphen bewegen</span><span class="value value-a">—</span></div>';
+    elements.hoverPointValues.innerHTML = '<div class="track-value-row"><span class="label">Maus \u00fcber den Graphen bewegen</span><span class="value">\u2014</span></div>';
     return;
   }
 
-  const origin = Math.min(0, state.offsetSeconds);
-  const timeA = chartInteraction.hoverTime + origin;
-  const timeB = chartInteraction.hoverTime + origin - state.offsetSeconds;
   const metric = getActiveMetric();
-  const trackAValue = getTrackValueAtTime(state.tracks[0], timeA);
-  const trackBValue = getTrackValueAtTime(state.tracks[1], timeB);
-  const nameA = getTrackDisplayName(0);
-  const nameB = getTrackDisplayName(1);
-
   elements.hoverPointTime.textContent = formatDuration(chartInteraction.hoverTime);
-  elements.hoverPointValues.innerHTML = `
-    ${formatValueRow(`${metric.label} ${nameA}`, trackAValue?.[metric.key], metric.unit, 'value-a')}
-    ${formatValueRow(`${metric.label} ${nameB}`, trackBValue?.[metric.key], metric.unit, 'value-b')}
-  `;
+  elements.hoverPointValues.innerHTML = getLoadedSlots()
+    .map((slot) => formatValueRow(
+      `${metric.label} ${getSlotDisplayName(slot)}`,
+      getTrackValueAtTime(slot.track, getSlotTime(slot, chartInteraction.hoverTime))?.[metric.key],
+      metric.unit,
+      getSlotColor(slot)
+    ))
+    .join('');
 }
 
 function refreshSelectionInspector() {
@@ -1153,35 +1399,41 @@ function refreshSelectionInspector() {
 
   const start = Math.min(chartInteraction.selectionStart, chartInteraction.selectionEnd);
   const end = Math.max(chartInteraction.selectionStart, chartInteraction.selectionEnd);
-  const origin = Math.min(0, state.offsetSeconds);
-  const rangeA = { startTime: start + origin, endTime: end + origin };
-  const rangeB = { startTime: start + origin - state.offsetSeconds, endTime: end + origin - state.offsetSeconds };
 
   elements.selectionPanel.classList.remove('hidden');
   elements.selectionRange.textContent = `${formatDuration(start)} - ${formatDuration(end)}`;
   syncSelectionEditor(start, end);
-  elements.selectionValues.innerHTML = buildWindowComparisonRows(rangeA, rangeB);
+
+  renderComparisonTable(elements.selectionValues, {
+    rows: WINDOW_COMPARISON_ROWS,
+    columns: getComparisonColumns(),
+    ranges: state.slots.map((slot) => ({
+      startTime: getSlotTime(slot, start),
+      endTime: getSlotTime(slot, end),
+    })),
+    source: 'computed',
+  });
 }
 
 function syncSelectionEditor(start, end) {
   elements.selectionTimeStart.value = formatDuration(start);
   elements.selectionTimeEnd.value = formatDuration(end);
 
-  syncSelectionDistanceInput(elements.selectionDistanceAStart, state.tracks[0], start, 0);
-  syncSelectionDistanceInput(elements.selectionDistanceAEnd, state.tracks[0], end, 0);
-  syncSelectionDistanceInput(elements.selectionDistanceBStart, state.tracks[1], start, state.offsetSeconds);
-  syncSelectionDistanceInput(elements.selectionDistanceBEnd, state.tracks[1], end, state.offsetSeconds);
+  for (const slot of state.slots) {
+    syncSelectionDistanceInput(slot, slot.el.selectionStart, start);
+    syncSelectionDistanceInput(slot, slot.el.selectionEnd, end);
+  }
 }
 
-function syncSelectionDistanceInput(input, track, overallTime, shift) {
+function syncSelectionDistanceInput(slot, input, overallTime) {
+  const track = slot.track;
   input.disabled = !track;
   if (!track) {
     input.value = '';
     return;
   }
 
-  const origin = Math.min(0, state.offsetSeconds);
-  const trackTime = overallTime + origin - shift;
+  const trackTime = getSlotTime(slot, overallTime);
   if (trackTime < track.samples[0].t || trackTime > track.samples[track.samples.length - 1].t) {
     input.value = '';
     return;
@@ -1191,24 +1443,23 @@ function syncSelectionDistanceInput(input, track, overallTime, shift) {
   input.value = Number.isFinite(distance) ? distance.toFixed(2) : '';
 }
 
-function applySelectionEditorValue(input, boundary, trackIndex) {
+function applySelectionTimeValue(input, boundary) {
+  applySelectionBoundary(boundary, parseDurationText(input.value));
+}
+
+function applySelectionDistanceValue(slot, input, boundary) {
+  const raw = String(input.value).trim();
+  const distance = raw ? Number(raw.replace(',', '.')) : NaN;
+  const trackTime = getTrackTimeAtDistance(slot.track, distance, boundary);
+  applySelectionBoundary(
+    boundary,
+    trackTime === null ? NaN : trackTime + slot.offsetSeconds - getTimelineOrigin()
+  );
+}
+
+function applySelectionBoundary(boundary, overallTime) {
   const currentStart = Math.min(chartInteraction.selectionStart, chartInteraction.selectionEnd);
   const currentEnd = Math.max(chartInteraction.selectionStart, chartInteraction.selectionEnd);
-  let overallTime;
-
-  if (trackIndex === null) {
-    overallTime = parseDurationText(input.value);
-  } else {
-    const rawDistance = String(input.value).trim();
-    const distance = rawDistance ? Number(rawDistance.replace(',', '.')) : NaN;
-    const track = state.tracks[trackIndex];
-    const trackTime = getTrackTimeAtDistance(track, distance, boundary);
-    if (trackTime !== null) {
-      const origin = Math.min(0, state.offsetSeconds);
-      const shift = trackIndex === 1 ? state.offsetSeconds : 0;
-      overallTime = trackTime + shift - origin;
-    }
-  }
 
   if (!Number.isFinite(overallTime)) {
     syncSelectionEditor(currentStart, currentEnd);
@@ -1268,7 +1519,7 @@ function interpolateTimeAtDistance(start, end, distance) {
 function refreshDistanceSelectionInspector() {
   if (!distanceInteraction.clicks.length) {
     elements.distanceSelectionPanel.classList.add('hidden');
-    elements.mapSelectionHint.textContent = 'Distanzfenster: 2× auf den Track klicken';
+    elements.mapSelectionHint.textContent = 'Distanzfenster: 2\u00d7 auf den Track klicken';
     elements.mapSelectionHint.classList.remove('active');
     return;
   }
@@ -1277,37 +1528,37 @@ function refreshDistanceSelectionInspector() {
   elements.mapSelectionHint.classList.add('active');
 
   const firstProjections = distanceInteraction.clicks[0].projections;
-  const secondProjections = distanceInteraction.clicks[1]?.projections ?? [null, null];
-  setDistanceWindowInput(elements.distanceWindowAStart, firstProjections[0]);
-  setDistanceWindowInput(elements.distanceWindowAEnd, secondProjections[0]);
-  setDistanceWindowInput(elements.distanceWindowBStart, firstProjections[1]);
-  setDistanceWindowInput(elements.distanceWindowBEnd, secondProjections[1]);
+  const secondProjections = distanceInteraction.clicks[1]?.projections ?? [];
+  state.slots.forEach((slot, index) => {
+    setDistanceWindowInput(slot.el.distanceStart, firstProjections[index]);
+    setDistanceWindowInput(slot.el.distanceEnd, secondProjections[index]);
+  });
 
   if (distanceInteraction.clicks.length < 2) {
-    elements.distanceSelectionRange.textContent = 'Start gesetzt – jetzt Endpunkt wählen';
+    elements.distanceSelectionRange.textContent = 'Start gesetzt \u2013 jetzt Endpunkt w\u00e4hlen';
     elements.distanceSelectionValues.innerHTML = '';
-    elements.mapSelectionHint.textContent = 'Distanzfenster: Endpunkt auf dem Track wählen';
+    elements.mapSelectionHint.textContent = 'Distanzfenster: Endpunkt auf dem Track w\u00e4hlen';
     return;
   }
 
-  elements.mapSelectionHint.textContent = 'Distanzfenster aktiv – nächster Klick startet neu';
-  const rangeA = distanceInteraction.ranges[0];
-  const rangeB = distanceInteraction.ranges[1];
-  const nameA = getTrackDisplayName(0);
-  const nameB = getTrackDisplayName(1);
-  setDistanceWindowInput(elements.distanceWindowAStart, rangeA?.start);
-  setDistanceWindowInput(elements.distanceWindowAEnd, rangeA?.end);
-  setDistanceWindowInput(elements.distanceWindowBStart, rangeB?.start);
-  setDistanceWindowInput(elements.distanceWindowBEnd, rangeB?.end);
-  elements.distanceSelectionRange.textContent = [
-    formatDistanceRange(nameA, rangeA),
-    formatDistanceRange(nameB, rangeB),
-  ].join(' · ');
+  elements.mapSelectionHint.textContent = 'Distanzfenster aktiv \u2013 n\u00e4chster Klick startet neu';
+  for (const slot of state.slots) {
+    setDistanceWindowInput(slot.el.distanceStart, slot.distanceRange?.start);
+    setDistanceWindowInput(slot.el.distanceEnd, slot.distanceRange?.end);
+  }
 
-  elements.distanceSelectionValues.innerHTML = buildWindowComparisonRows(
-    rangeA ? { startTime: rangeA.start.t, endTime: rangeA.end.t } : null,
-    rangeB ? { startTime: rangeB.start.t, endTime: rangeB.end.t } : null
-  );
+  elements.distanceSelectionRange.textContent = getLoadedSlots()
+    .map((slot) => formatDistanceRange(getSlotDisplayName(slot), slot.distanceRange))
+    .join(' \u00b7 ');
+
+  renderComparisonTable(elements.distanceSelectionValues, {
+    rows: WINDOW_COMPARISON_ROWS,
+    columns: getComparisonColumns(),
+    ranges: state.slots.map((slot) => (slot.distanceRange
+      ? { startTime: slot.distanceRange.start.t, endTime: slot.distanceRange.end.t }
+      : null)),
+    source: 'computed',
+  });
 }
 
 function setDistanceWindowInput(input, sample) {
@@ -1323,92 +1574,154 @@ function formatDistanceRange(label, range) {
 
 function clearDistanceSelectionWindow() {
   distanceInteraction.clicks = [];
-  distanceInteraction.ranges = [null, null];
+  for (const slot of state.slots) {
+    slot.distanceRange = null;
+  }
   refreshDistanceSelectionInspector();
   renderDistanceSelectionLayers();
 }
 
-function buildWindowComparisonRows(rangeA, rangeB) {
-  const ranges = [rangeA, rangeB];
-  const names = [getTrackDisplayName(0), getTrackDisplayName(1)];
-  const classes = ['value-a', 'value-b'];
-  const rows = [];
+function getTrackColor(index) {
+  return TRACK_COLORS[index % TRACK_COLORS.length];
+}
 
-  const addMetricPair = (label, key, unit) => {
-    for (let index = 0; index < 2; index++) {
-      const range = ranges[index];
-      rows.push(formatValueRow(
-        `${label} Ø ${names[index]}`,
-        averageMetric(state.tracks[index], range?.startTime, range?.endTime, key),
-        unit,
-        classes[index]
-      ));
-    }
-  };
+// Spalten der Vergleichstabellen: eine je geladener Datei. `index` bleibt der
+// Slot-Index, damit Aufrufer ihre Zeitfenster darüber zuordnen können.
+function getComparisonColumns() {
+  return state.slots
+    .map((slot, index) => ({
+      slot,
+      track: slot.track,
+      index,
+      name: getSlotDisplayName(slot),
+      color: getTrackColor(index),
+    }))
+    .filter((column) => column.track);
+}
 
-  addMetricPair('Geschwindigkeit', 'speed', 'km/h');
-  addMetricPair('HR', 'heartRate', 'bpm');
-  addMetricPair('Power', 'power', 'W');
-
-  for (let index = 0; index < 2; index++) {
-    const range = ranges[index];
-    rows.push(formatValueRow(
-      `Normalized Power ${names[index]}`,
-      calculateNormalizedPower(state.tracks[index], range?.startTime, range?.endTime),
-      'W',
-      classes[index]
-    ));
+function refreshActivityComparison() {
+  const columns = getComparisonColumns();
+  elements.comparisonPanel.classList.toggle('hidden', !columns.length);
+  if (!columns.length) {
+    return;
   }
 
-  for (let index = 0; index < 2; index++) {
-    const range = ranges[index];
-    rows.push(formatDurationValueRow(
-      `Zeit ${names[index]}`,
-      calculateElapsedTime(state.tracks[index], range?.startTime, range?.endTime),
-      classes[index]
-    ));
+  // GPX-Dateien bringen keine session-Message mit. Ist gar kein Gerätewert da,
+  // bleibt die obere Tabelle weg, statt leer stehen zu bleiben.
+  const hasSession = columns.some((column) => column.track.session);
+  elements.deviceComparison.classList.toggle('hidden', !hasSession);
+  if (hasSession) {
+    renderComparisonTable(elements.deviceComparisonValues, {
+      rows: COMPARISON_ROWS,
+      columns,
+      source: 'session',
+    });
   }
 
-  for (let index = 0; index < 2; index++) {
-    const range = ranges[index];
-    rows.push(formatValueRow(
-      `Distanz ${names[index]}`,
-      calculateDistanceCovered(state.tracks[index], range?.startTime, range?.endTime),
-      'km',
-      classes[index]
-    ));
+  renderComparisonTable(elements.computedComparisonValues, {
+    rows: COMPARISON_ROWS,
+    columns,
+    source: 'computed',
+    showDelta: hasSession,
+  });
+}
+
+function renderComparisonTable(container, { rows, columns, ranges = null, source, showDelta = false }) {
+  const usableRows = rows.filter((row) => (source === 'session' ? row.session : row.computed));
+  const header = columns
+    .map((column) => `<th scope="col" style="color: ${column.color}">${escapeHtml(column.name)}</th>`)
+    .join('');
+
+  const body = usableRows
+    .map((row) => {
+      const cells = columns.map((column) =>
+        buildComparisonCell(row, column, ranges?.[column.index] ?? null, source, showDelta, ranges !== null));
+      // Welche session-Felder ein Geraet schreibt, ist modellabhaengig. Eine Zeile,
+      // zu der keine Spalte etwas liefert, waere nur eine Reihe Gedankenstriche.
+      if (cells.every((cell) => cell.value === null)) {
+        return '';
+      }
+      const rendered = cells.map((cell) => cell.html).join('');
+      return `<tr><th scope="row">${escapeHtml(row.label)}</th>${rendered}</tr>`;
+    })
+    .join('');
+
+  container.innerHTML = `
+    <table class="comparison-table">
+      <thead><tr><th scope="col">Metrik</th>${header}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  `;
+}
+
+function buildComparisonCell(row, column, range, source, showDelta, windowed) {
+  const rawSession = column.track?.session && row.session ? row.session(column.track.session) : null;
+  const sessionValue = Number.isFinite(rawSession) ? rawSession : null;
+
+  if (source === 'session') {
+    return { value: sessionValue, html: `<td>${formatComparisonValue(row, sessionValue)}</td>` };
   }
 
-  for (let index = 0; index < 2; index++) {
-    const range = ranges[index];
-    rows.push(formatValueRow(
-      `Höhenzunahme ${names[index]}`,
-      calculateElevationGain(state.tracks[index], range?.startTime, range?.endTime),
-      'm',
-      classes[index]
-    ));
+  const computed = readComputedValue(row, column.track, range, windowed);
+  const value = Number.isFinite(computed) ? computed : null;
+  const delta = showDelta ? relativeDelta(value, sessionValue) : null;
+  return { value, html: `<td>${formatComparisonValue(row, value)}${renderDeltaBadge(delta)}</td>` };
+}
+
+// Ohne Fenster gilt die ganze Aktivität.
+function readComputedValue(row, track, range, windowed) {
+  if (!track || !row.computed) {
+    return null;
   }
 
-  for (let index = 0; index < 2; index++) {
-    const range = ranges[index];
-    rows.push(formatDurationValueRow(
-      `Stehzeit ${names[index]}`,
-      calculateStoppedTime(state.tracks[index], range?.startTime, range?.endTime),
-      classes[index]
-    ));
+  if (windowed) {
+    return range ? row.computed(track, range.startTime, range.endTime) : null;
   }
 
-  const pairs = [];
-  for (let index = 0; index < rows.length; index += 2) {
-    pairs.push(`
-      <div class="comparison-pair">
-        ${rows[index]}
-        ${rows[index + 1] ?? ''}
-      </div>
-    `);
+  return row.computed(track, track.startTime, track.endTime);
+}
+
+function relativeDelta(value, reference) {
+  if (!Number.isFinite(value) || !Number.isFinite(reference) || reference === 0) {
+    return null;
   }
 
-  return pairs.join('');
+  return ((value - reference) / reference) * 100;
+}
+
+function renderDeltaBadge(delta) {
+  if (!Number.isFinite(delta)) {
+    return '';
+  }
+
+  const rounded = Math.round(delta * 10) / 10;
+  if (rounded === 0) {
+    return '';
+  }
+
+  const sign = rounded > 0 ? '+' : '−';
+  const className = Math.abs(rounded) > 2 ? 'comparison-delta strong' : 'comparison-delta';
+  return `<span class="${className}">${sign}${formatNumber(Math.abs(rounded), 1)} %</span>`;
+}
+
+function formatComparisonValue(row, value) {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+
+  if (row.format === 'duration') {
+    return formatDuration(value);
+  }
+
+  const text = formatNumber(value, row.decimals ?? 0);
+  return row.unit ? `${text} ${row.unit}` : text;
+}
+
+function formatNumber(value, decimals) {
+  return value.toLocaleString('de-DE', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 function createChartOverlayPlugin() {
@@ -1553,7 +1866,7 @@ function buildDataset(track, metric, color, shift, origin) {
 }
 
 function togglePlayback() {
-  if (!state.tracks.some(Boolean)) {
+  if (!getLoadedSlots().length) {
     return;
   }
 
@@ -1606,38 +1919,33 @@ function renderEmptyState() {
   refreshCurrentPointInspector();
   refreshHoverInspector();
   refreshSelectionInspector();
+  refreshActivityComparison();
 }
 
-function setLoadingState(index, { phase, percent, loading, status, meta }) {
-  setStatus(index, status, loading);
-  setMeta(index, meta);
-  updateProgress(index, percent, phase);
+function setLoadingState(slot, { phase, percent, loading, status, meta }) {
+  setStatus(slot, status, loading);
+  setMeta(slot, meta);
+  updateProgress(slot, percent, phase);
 }
 
-function setMeta(index, text) {
-  const element = index === 0 ? elements.metaA : elements.metaB;
-  element.textContent = text;
+function setMeta(slot, text) {
+  slot.el.meta.textContent = text;
 }
 
-function updateProgress(index, percent, phase) {
-  const bar = index === 0 ? elements.progressBarA : elements.progressBarB;
-  const label = index === 0 ? elements.progressLabelA : elements.progressLabelB;
-  const value = index === 0 ? elements.progressValueA : elements.progressValueB;
-  const track = bar.closest('.file-progress-track');
+function updateProgress(slot, percent, phase) {
+  const track = slot.el.progressBar.closest('.file-progress-track');
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
 
   track.classList.add('loading');
-  bar.style.width = `${safePercent}%`;
-  label.textContent = phase;
-  value.textContent = `${Math.round(safePercent)} %`;
+  slot.el.progressBar.style.width = `${safePercent}%`;
+  slot.el.progressLabel.textContent = phase;
+  slot.el.progressValue.textContent = `${Math.round(safePercent)} %`;
 }
 
-function setStatus(index, label, loading) {
-  const element = index === 0 ? elements.statusA : elements.statusB;
-  const bar = index === 0 ? elements.progressBarA : elements.progressBarB;
-  const track = bar.closest('.file-progress-track');
-  element.textContent = label;
-  element.style.opacity = loading ? '0.75' : '1';
+function setStatus(slot, label, loading) {
+  const track = slot.el.progressBar.closest('.file-progress-track');
+  slot.el.status.textContent = label;
+  slot.el.status.style.opacity = loading ? '0.75' : '1';
   track.classList.toggle('loading', loading);
 }
 
@@ -1692,6 +2000,7 @@ function getTrackValueAtTime(track, time) {
     distance: interpolateNumeric(start.distance, end.distance, ratio),
     cadence: interpolateNumeric(start.cadence, end.cadence, ratio),
     altitude: interpolateNumeric(start.altitude, end.altitude, ratio),
+    smoothedAltitude: interpolateNumeric(start.smoothedAltitude, end.smoothedAltitude, ratio),
     lat: interpolateNumeric(start.lat, end.lat, ratio),
     lon: interpolateNumeric(start.lon, end.lon, ratio),
   };
@@ -1714,21 +2023,11 @@ function formatMetricValue(value, unit) {
   return `${value.toFixed(decimals)} ${unit}`;
 }
 
-function formatValueRow(label, value, unit, className) {
+function formatValueRow(label, value, unit, color) {
   return `
     <div class="track-value-row">
       <span class="label">${escapeHtml(label)}</span>
-      <span class="value ${className}">${formatMetricValue(value, unit)}</span>
-    </div>
-  `;
-}
-
-function formatDurationValueRow(label, seconds, className) {
-  const value = Number.isFinite(seconds) ? formatDuration(seconds) : '-';
-  return `
-    <div class="track-value-row">
-      <span class="label">${escapeHtml(label)}</span>
-      <span class="value ${className}">${value}</span>
+      <span class="value" style="color: ${color}">${formatMetricValue(value, unit)}</span>
     </div>
   `;
 }
@@ -1742,21 +2041,7 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function updateAllMetricRows(container, trackAValue, trackBValue) {
-  container.innerHTML = `
-    ${formatValueRow('HR', trackAValue?.heartRate, 'bpm', 'value-a')}
-    ${formatValueRow('Power', trackAValue?.power, 'W', 'value-a')}
-    ${formatValueRow('Geschwindigkeit', trackAValue?.speed, 'km/h', 'value-a')}
-    ${formatValueRow('Kadenz', trackAValue?.cadence, 'rpm', 'value-a')}
-    ${formatValueRow('Höhe', trackAValue?.altitude, 'm', 'value-a')}
-    <div class="track-value-row">
-      <span class="label">Track 2</span>
-      <span class="value value-b"></span>
-    </div>
-  `;
-}
-
-function averageMetric(track, startTime, endTime, key) {
+function averageMetric(track, startTime, endTime, key, { ignoreZeros = false } = {}) {
   if (!track || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
     return null;
   }
@@ -1764,13 +2049,76 @@ function averageMetric(track, startTime, endTime, key) {
   const values = track.samples
     .filter((sample) => sample.t >= startTime && sample.t <= endTime)
     .map((sample) => sample[key])
-    .filter((value) => Number.isFinite(value));
+    .filter((value) => Number.isFinite(value) && (!ignoreZeros || value > 0));
 
   if (!values.length) {
     return null;
   }
 
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function minMetric(track, startTime, endTime, key) {
+  return extremeMetric(track, startTime, endTime, key, -1);
+}
+
+function maxMetric(track, startTime, endTime, key) {
+  return extremeMetric(track, startTime, endTime, key, 1);
+}
+
+function extremeMetric(track, startTime, endTime, key, direction) {
+  if (!track || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+    return null;
+  }
+
+  let best = null;
+  for (const sample of track.samples) {
+    if (sample.t < startTime || sample.t > endTime) {
+      continue;
+    }
+    const value = sample[key];
+    if (Number.isFinite(value) && (best === null || (value - best) * direction > 0)) {
+      best = value;
+    }
+  }
+
+  return best;
+}
+
+// Garmin bildet den Schnitt aus Distanz/Zeit, nicht aus den Momentanwerten.
+// Der Sample-Mittelwert lag bei RACA_Tobi 17,9 % daneben, weil Standphasen
+// ohne Speed-Record den Schnitt nach oben ziehen.
+function calculateAverageSpeed(track, startTime, endTime) {
+  const distance = calculateDistanceCovered(track, startTime, endTime);
+  const elapsed = calculateElapsedTime(track, startTime, endTime);
+  if (!Number.isFinite(distance) || !Number.isFinite(elapsed) || elapsed <= 0) {
+    return null;
+  }
+
+  return (distance / elapsed) * 3600;
+}
+
+// Die teuren Fensterwerte (NP, Hoehenmeter) laufen bei jedem refreshChart erneut,
+// also bei jeder Mausbewegung ueber den Graphen. Der Cache haengt am Track und
+// verfaellt damit automatisch, sobald eine Datei neu geladen wird.
+function memoizeTrackMetric(track, key, compute) {
+  if (!track) {
+    return compute();
+  }
+
+  const cache = track.metricCache ?? (track.metricCache = new Map());
+  if (cache.has(key)) {
+    return cache.get(key);
+  }
+
+  const value = compute();
+  // Beim Ziehen eines Zeitfensters entsteht pro Mausbewegung ein neuer Schluessel.
+  // Ohne Deckel waechst der Cache ueber eine lange Sitzung unbegrenzt.
+  if (cache.size >= METRIC_CACHE_LIMIT) {
+    cache.delete(cache.keys().next().value);
+  }
+  cache.set(key, value);
+  return value;
 }
 
 function getClampedTrackRange(track, startTime, endTime) {
@@ -1802,20 +2150,32 @@ function calculateDistanceCovered(track, startTime, endTime) {
 }
 
 function calculateElevationGain(track, startTime, endTime) {
+  return memoizeTrackMetric(track, `gain:${startTime}:${endTime}`, () =>
+    sumElevationDelta(track, startTime, endTime, 1));
+}
+
+function calculateElevationLoss(track, startTime, endTime) {
+  return memoizeTrackMetric(track, `loss:${startTime}:${endTime}`, () =>
+    sumElevationDelta(track, startTime, endTime, -1));
+}
+
+// direction 1 summiert die Anstiege, -1 die Abstiege. Gerechnet wird auf
+// smoothedAltitude (siehe smoothAltitudes), nicht auf der rohen Hoehe.
+function sumElevationDelta(track, startTime, endTime, direction) {
   const range = getClampedTrackRange(track, startTime, endTime);
   if (!range) {
     return null;
   }
 
-  const altitudes = [getTrackValueAtTime(track, range.start)?.altitude];
+  const altitudes = [getTrackValueAtTime(track, range.start)?.smoothedAltitude];
   for (const sample of track.samples) {
     if (sample.t > range.start && sample.t < range.end) {
-      altitudes.push(sample.altitude);
+      altitudes.push(sample.smoothedAltitude);
     }
   }
-  altitudes.push(getTrackValueAtTime(track, range.end)?.altitude);
+  altitudes.push(getTrackValueAtTime(track, range.end)?.smoothedAltitude);
 
-  let gain = 0;
+  let total = 0;
   let previous = null;
   let hasAltitudeData = false;
   for (const altitude of altitudes) {
@@ -1823,13 +2183,13 @@ function calculateElevationGain(track, startTime, endTime) {
       continue;
     }
     if (previous !== null) {
-      gain += Math.max(0, altitude - previous);
+      total += Math.max(0, (altitude - previous) * direction);
     }
     previous = altitude;
     hasAltitudeData = true;
   }
 
-  return hasAltitudeData ? gain : null;
+  return hasAltitudeData ? total : null;
 }
 
 function calculateStoppedTime(track, startTime, endTime) {
@@ -1868,6 +2228,11 @@ function calculateStoppedTime(track, startTime, endTime) {
 }
 
 function calculateNormalizedPower(track, startTime, endTime) {
+  return memoizeTrackMetric(track, `np:${startTime}:${endTime}`, () =>
+    computeNormalizedPower(track, startTime, endTime));
+}
+
+function computeNormalizedPower(track, startTime, endTime) {
   if (!track?.samples.length || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
     return null;
   }
@@ -1909,9 +2274,8 @@ function calculateNormalizedPower(track, startTime, endTime) {
   return meanFourthPower ** 0.25;
 }
 
-function updateOffsetDisplay() {
-  const formatted = formatOffsetText(Number(elements.offset.value));
-  elements.offsetText.value = formatted;
+function updateOffsetDisplay(slot) {
+  slot.el.offsetText.value = formatOffsetText(slot.offsetSeconds);
 }
 
 function formatOffsetText(seconds) {
@@ -1977,51 +2341,23 @@ function parseDurationText(value) {
 }
 
 function formatDuration(seconds) {
-  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const safeSeconds = Math.round(Math.max(0, Number(seconds) || 0));
   const hours = Math.floor(safeSeconds / 3600);
   const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const secs = Math.floor(safeSeconds % 60);
+  const secs = safeSeconds % 60;
   const mm = String(minutes).padStart(2, '0');
   const ss = String(secs).padStart(2, '0');
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
 }
 
-function setMapLabel(index, label) {
-  const element = index === 0 ? elements.mapLabelA : elements.mapLabelB;
-  element.textContent = label;
-}
-
-function getTrackDisplayName(index) {
-  const track = state.tracks[index];
-  return track?.displayName?.trim() || track?.fileName || `Datei ${index + 1}`;
-}
-
-function updateTrackDisplayName(index, value) {
-  const track = state.tracks[index];
-  if (!track) {
+function updateTrackDisplayName(slot, value) {
+  if (!slot.track) {
     return;
   }
 
-  track.displayName = String(value || '').trim() || track.fileName;
-  const name = getTrackDisplayName(index);
-  setMapLabel(index, name);
-  updateTrackEditorLabels();
+  slot.track.displayName = String(value || '').trim() || slot.track.fileName;
+  syncSlotChrome();
   refreshChart();
   refreshCurrentPointInspector();
 }
 
-function updateTrackEditorLabels() {
-  const nameA = getTrackDisplayName(0);
-  const nameB = getTrackDisplayName(1);
-  elements.selectionLabelA.textContent = `${nameA} (km)`;
-  elements.selectionLabelB.textContent = `${nameB} (km)`;
-  elements.distanceSelectionLabelA.textContent = `${nameA} (km)`;
-  elements.distanceSelectionLabelB.textContent = `${nameB} (km)`;
-  elements.offsetLabel.textContent = `Start-Offset ${nameB}`;
-}
-
-function resetMapLabels() {
-  setMapLabel(0, 'Datei 1');
-  setMapLabel(1, 'Datei 2');
-  updateTrackEditorLabels();
-}

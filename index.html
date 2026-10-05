@@ -15,58 +15,65 @@
   <div class="backdrop backdrop-b"></div>
 
   <main class="app-shell">
-    <section class="panel grid-2">
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <p class="card-kicker">Datei 1</p>
-            <input class="track-name hidden" id="trackNameA" type="text" aria-label="Anzeigename Datei 1">
-          </div>
-          <span class="badge badge-a" id="statusA">Noch nicht geladen</span>
-        </div>
-        <label class="file-drop">
-          <input type="file" id="fileA" accept=".gpx,.fit,.tcx,application/gpx+xml,application/octet-stream" hidden>
-          <span>Datei auswählen</span>
-          <small>GPX oder FIT</small>
-        </label>
-        <div class="file-progress">
-          <div class="file-progress-track"><div class="file-progress-bar" id="progressBarA"></div></div>
-          <div class="file-progress-meta"><span id="progressLabelA">Bereit</span><span id="progressValueA">0 %</span></div>
-        </div>
-        <div class="meta" id="metaA">Keine Datei gewählt.</div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <p class="card-kicker">Datei 2</p>
-            <input class="track-name hidden" id="trackNameB" type="text" aria-label="Anzeigename Datei 2">
-          </div>
-          <span class="badge badge-b" id="statusB">Noch nicht geladen</span>
-        </div>
-        <label class="file-drop">
-          <input type="file" id="fileB" accept=".gpx,.fit,.tcx,application/gpx+xml,application/octet-stream" hidden>
-          <span>Datei auswählen</span>
-          <small>GPX oder FIT</small>
-        </label>
-        <div class="file-progress">
-          <div class="file-progress-track"><div class="file-progress-bar" id="progressBarB"></div></div>
-          <div class="file-progress-meta"><span id="progressLabelB">Bereit</span><span id="progressValueB">0 %</span></div>
-        </div>
-        <div class="meta" id="metaB">Keine Datei gewählt.</div>
-      </div>
+    <section class="panel files-card">
+      <div class="file-grid" id="fileCards"></div>
+      <button class="secondary-button add-file" id="addFile" type="button">+ Datei</button>
     </section>
+
+    <template id="fileCardTemplate">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <p class="card-kicker" data-role="kicker">Datei</p>
+            <input class="track-name hidden" data-role="name" type="text">
+          </div>
+          <div class="card-header-actions">
+            <span class="badge" data-role="status">Noch nicht geladen</span>
+            <button class="card-remove" data-role="remove" type="button" aria-label="Datei entfernen">×</button>
+          </div>
+        </div>
+        <label class="file-drop">
+          <input type="file" data-role="file" accept=".gpx,.fit,application/gpx+xml,application/octet-stream" hidden>
+          <span>Datei auswählen</span>
+          <small>GPX oder FIT</small>
+        </label>
+        <div class="file-progress">
+          <div class="file-progress-track"><div class="file-progress-bar" data-role="progressBar"></div></div>
+          <div class="file-progress-meta"><span data-role="progressLabel">Bereit</span><span data-role="progressValue">0 %</span></div>
+        </div>
+        <div class="control-group slot-offset hidden" data-role="offsetGroup">
+          <label data-role="offsetLabel">Start-Offset</label>
+          <div class="inline-control">
+            <input type="range" data-role="offsetRange" min="-600" max="600" step="1" value="0">
+            <input type="text" class="offset-text" data-role="offsetText" value="00:00" inputmode="text" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="meta" data-role="meta">Keine Datei gewählt.</div>
+      </div>
+    </template>
+
+    <template id="legendItemTemplate">
+      <span class="legend-item"><i class="legend-dot" data-role="dot"></i> <span data-role="label">Datei</span></span>
+    </template>
+
+    <template id="selectionRowTemplate">
+      <div class="selection-editor-row">
+        <span class="selection-editor-label" data-role="label">Datei (km)</span>
+        <label><span>Anfang</span><input data-role="start" type="number" inputmode="decimal" min="0" step="0.01"></label>
+        <label><span>Ende</span><input data-role="end" type="number" inputmode="decimal" min="0" step="0.01"></label>
+      </div>
+    </template>
+
+    <template id="distanceRowTemplate">
+      <div class="selection-editor-row">
+        <span class="selection-editor-label" data-role="label">Datei (km)</span>
+        <label><span>Anfang</span><input data-role="start" type="text" readonly></label>
+        <label><span>Ende</span><input data-role="end" type="text" readonly></label>
+      </div>
+    </template>
 
     <section class="panel controls-card">
       <div class="control-row">
-        <div class="control-group">
-          <label for="offset" id="offsetLabel">Start-Offset Datei 2</label>
-          <div class="inline-control">
-            <input id="offset" type="range" min="-600" max="600" step="1" value="0">
-            <input id="offsetText" class="offset-text" type="text" inputmode="text" autocomplete="off" spellcheck="false" value="00:00" aria-label="Start-Offset als mm:ss">
-          </div>
-        </div>
-
         <div class="control-group">
           <label>Playback</label>
           <div class="playback-controls">
@@ -98,14 +105,30 @@
       </div>
     </section>
 
+    <section class="panel comparison-card hidden" id="comparisonPanel">
+      <div class="section-header">
+        <div>
+          <p class="card-kicker">Vergleich</p>
+          <h3 class="comparison-title">Gesamte Aktivität</h3>
+        </div>
+      </div>
+      <div class="comparison-block" id="deviceComparison">
+        <p class="comparison-subhead">Gerätewerte aus der Datei <span class="comparison-note">entspricht Garmin Connect</span></p>
+        <div class="comparison-scroll" id="deviceComparisonValues"></div>
+      </div>
+      <details class="comparison-block" id="computedComparison" open>
+        <summary class="comparison-subhead">Berechnet aus den Messpunkten <span class="comparison-note">gleiche Rechnung wie Zeit- und Distanzfenster</span></summary>
+        <div class="comparison-scroll" id="computedComparisonValues"></div>
+      </details>
+    </section>
+
     <section class="panel map-card">
       <div class="section-header">
         <div>
           <p class="card-kicker">Karte</p>
         </div>
         <div class="legend">
-          <span><i class="legend-dot a"></i> <span id="mapLabelA">Datei 1</span></span>
-          <span><i class="legend-dot b"></i> <span id="mapLabelB">Datei 2</span></span>
+          <span class="legend-items" id="mapLegend"></span>
           <span class="map-selection-hint" id="mapSelectionHint">Distanzfenster: 2× auf den Track klicken</span>
         </div>
       </div>
@@ -159,18 +182,9 @@
               <label><span>Anfang</span><input id="selectionTimeStart" type="text" inputmode="text" value="0:00"></label>
               <label><span>Ende</span><input id="selectionTimeEnd" type="text" inputmode="text" value="0:00"></label>
             </div>
-            <div class="selection-editor-row">
-              <span class="selection-editor-label value-a" id="selectionLabelA">Datei 1 (km)</span>
-              <label><span>Anfang</span><input id="selectionDistanceAStart" type="number" inputmode="decimal" min="0" step="0.01"></label>
-              <label><span>Ende</span><input id="selectionDistanceAEnd" type="number" inputmode="decimal" min="0" step="0.01"></label>
-            </div>
-            <div class="selection-editor-row">
-              <span class="selection-editor-label value-b" id="selectionLabelB">Datei 2 (km)</span>
-              <label><span>Anfang</span><input id="selectionDistanceBStart" type="number" inputmode="decimal" min="0" step="0.01"></label>
-              <label><span>Ende</span><input id="selectionDistanceBEnd" type="number" inputmode="decimal" min="0" step="0.01"></label>
-            </div>
+            <div id="selectionDistanceRows"></div>
           </div>
-          <div class="track-value-grid" id="selectionValues"></div>
+          <div class="comparison-scroll" id="selectionValues"></div>
         </article>
 
         <article class="inspector-card selection-card hidden" id="distanceSelectionPanel">
@@ -182,18 +196,9 @@
             <button class="selection-close" id="distanceSelectionClose" type="button" aria-label="Distanzfenster schließen">×</button>
           </div>
           <div class="selection-editor" aria-label="Distanzfenster">
-            <div class="selection-editor-row">
-              <span class="selection-editor-label value-a" id="distanceSelectionLabelA">Datei 1 (km)</span>
-              <label><span>Anfang</span><input id="distanceWindowAStart" type="text" readonly></label>
-              <label><span>Ende</span><input id="distanceWindowAEnd" type="text" readonly></label>
-            </div>
-            <div class="selection-editor-row">
-              <span class="selection-editor-label value-b" id="distanceSelectionLabelB">Datei 2 (km)</span>
-              <label><span>Anfang</span><input id="distanceWindowBStart" type="text" readonly></label>
-              <label><span>Ende</span><input id="distanceWindowBEnd" type="text" readonly></label>
-            </div>
+            <div id="distanceWindowRows"></div>
           </div>
-          <div class="track-value-grid" id="distanceSelectionValues"></div>
+          <div class="comparison-scroll" id="distanceSelectionValues"></div>
         </article>
       </div>
     </section>
