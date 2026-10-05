@@ -71,7 +71,17 @@ const COMPARISON_ROWS = [
   { label: 'Intensity Factor', decimals: 3, session: (s) => s.intensityFactor },
 ];
 
+const DEVICE_COMPARISON_ROWS = COMPARISON_ROWS.filter((row) => row.session);
+const COMPUTED_COMPARISON_ROWS = COMPARISON_ROWS.filter((row) => row.computed);
 const WINDOW_COMPARISON_ROWS = COMPARISON_ROWS.filter((row) => row.window && row.computed);
+
+// Momentanwerte an einem Zeitpunkt -- dieselbe Tabelle, nur ohne Aggregation.
+const POINT_ROWS = METRICS.map((metric) => ({
+  label: metric.label,
+  unit: metric.unit,
+  decimals: metric.key === 'distance' ? 2 : metric.key === 'speed' ? 1 : 0,
+  key: metric.key,
+}));
 
 const ALTITUDE_SMOOTHING_RADIUS_SECONDS = 5;
 const METRIC_CACHE_LIMIT = 500;
@@ -1357,38 +1367,34 @@ function getChartPointerPixelX(event) {
 }
 
 function refreshCurrentPointInspector() {
-  const slots = getLoadedSlots();
   elements.currentPointTime.textContent = formatDuration(state.currentTime);
-  elements.currentPointValues.innerHTML = ['heartRate', 'power', 'speed']
-    .flatMap((key) => {
-      const metric = METRICS.find((entry) => entry.key === key);
-      return slots.map((slot) => formatValueRow(
-        `${metric.label} ${getSlotDisplayName(slot)}`,
-        getTrackValueAtTime(slot.track, getSlotTime(slot, state.currentTime))?.[key],
-        metric.unit,
-        getSlotColor(slot)
-      ));
-    })
-    .join('');
+  renderPointTable(elements.currentPointValues, state.currentTime);
 }
 
 function refreshHoverInspector() {
   if (chartInteraction.hoverTime === null) {
     elements.hoverPointTime.textContent = '-';
-    elements.hoverPointValues.innerHTML = '<div class="track-value-row"><span class="label">Maus \u00fcber den Graphen bewegen</span><span class="value">\u2014</span></div>';
+    elements.hoverPointValues.innerHTML = '<p class="inspector-empty">Maus über den Graphen bewegen</p>';
     return;
   }
 
-  const metric = getActiveMetric();
   elements.hoverPointTime.textContent = formatDuration(chartInteraction.hoverTime);
-  elements.hoverPointValues.innerHTML = getLoadedSlots()
-    .map((slot) => formatValueRow(
-      `${metric.label} ${getSlotDisplayName(slot)}`,
-      getTrackValueAtTime(slot.track, getSlotTime(slot, chartInteraction.hoverTime))?.[metric.key],
-      metric.unit,
-      getSlotColor(slot)
-    ))
-    .join('');
+  renderPointTable(elements.hoverPointValues, chartInteraction.hoverTime);
+}
+
+function renderPointTable(container, overallTime) {
+  const columns = getComparisonColumns();
+  if (!columns.length) {
+    container.innerHTML = '<p class="inspector-empty">Noch keine Datei geladen</p>';
+    return;
+  }
+
+  renderComparisonTable(container, {
+    rows: POINT_ROWS,
+    columns,
+    getValue: (row, column) =>
+      getTrackValueAtTime(column.track, getSlotTime(column.slot, overallTime))?.[row.key],
+  });
 }
 
 function refreshSelectionInspector() {
@@ -1404,14 +1410,14 @@ function refreshSelectionInspector() {
   elements.selectionRange.textContent = `${formatDuration(start)} - ${formatDuration(end)}`;
   syncSelectionEditor(start, end);
 
+  const ranges = state.slots.map((slot) => ({
+    startTime: getSlotTime(slot, start),
+    endTime: getSlotTime(slot, end),
+  }));
   renderComparisonTable(elements.selectionValues, {
     rows: WINDOW_COMPARISON_ROWS,
     columns: getComparisonColumns(),
-    ranges: state.slots.map((slot) => ({
-      startTime: getSlotTime(slot, start),
-      endTime: getSlotTime(slot, end),
-    })),
-    source: 'computed',
+    getValue: (row, column) => readWindowValue(row, column, ranges),
   });
 }
 
@@ -1551,13 +1557,13 @@ function refreshDistanceSelectionInspector() {
     .map((slot) => formatDistanceRange(getSlotDisplayName(slot), slot.distanceRange))
     .join(' \u00b7 ');
 
+  const ranges = state.slots.map((slot) => (slot.distanceRange
+    ? { startTime: slot.distanceRange.start.t, endTime: slot.distanceRange.end.t }
+    : null));
   renderComparisonTable(elements.distanceSelectionValues, {
     rows: WINDOW_COMPARISON_ROWS,
     columns: getComparisonColumns(),
-    ranges: state.slots.map((slot) => (slot.distanceRange
-      ? { startTime: slot.distanceRange.start.t, endTime: slot.distanceRange.end.t }
-      : null)),
-    source: 'computed',
+    getValue: (row, column) => readWindowValue(row, column, ranges),
   });
 }
 
@@ -1612,37 +1618,41 @@ function refreshActivityComparison() {
   elements.deviceComparison.classList.toggle('hidden', !hasSession);
   if (hasSession) {
     renderComparisonTable(elements.deviceComparisonValues, {
-      rows: COMPARISON_ROWS,
+      rows: DEVICE_COMPARISON_ROWS,
       columns,
-      source: 'session',
+      getValue: readSessionValue,
     });
   }
 
   renderComparisonTable(elements.computedComparisonValues, {
-    rows: COMPARISON_ROWS,
+    rows: COMPUTED_COMPARISON_ROWS,
     columns,
-    source: 'computed',
-    showDelta: hasSession,
+    getValue: (row, column) => row.computed(column.track, column.track.startTime, column.track.endTime),
+    getReference: hasSession ? readSessionValue : null,
   });
 }
 
-function renderComparisonTable(container, { rows, columns, ranges = null, source, showDelta = false }) {
-  const usableRows = rows.filter((row) => (source === 'session' ? row.session : row.computed));
+function renderComparisonTable(container, { rows, columns, getValue, getReference = null }) {
   const header = columns
     .map((column) => `<th scope="col" style="color: ${column.color}">${escapeHtml(column.name)}</th>`)
     .join('');
 
-  const body = usableRows
+  const body = rows
     .map((row) => {
-      const cells = columns.map((column) =>
-        buildComparisonCell(row, column, ranges?.[column.index] ?? null, source, showDelta, ranges !== null));
-      // Welche session-Felder ein Geraet schreibt, ist modellabhaengig. Eine Zeile,
-      // zu der keine Spalte etwas liefert, waere nur eine Reihe Gedankenstriche.
-      if (cells.every((cell) => cell.value === null)) {
+      const values = columns.map((column) => toFiniteOrNull(getValue(row, column)));
+      // Welche session-Felder ein Gerät schreibt, ist modellabhängig. Eine Zeile,
+      // zu der keine Spalte etwas liefert, wäre nur eine Reihe Gedankenstriche.
+      if (values.every((value) => value === null)) {
         return '';
       }
-      const rendered = cells.map((cell) => cell.html).join('');
-      return `<tr><th scope="row">${escapeHtml(row.label)}</th>${rendered}</tr>`;
+
+      const cells = values
+        .map((value, index) => {
+          const reference = getReference ? toFiniteOrNull(getReference(row, columns[index])) : null;
+          return `<td>${formatComparisonValue(row, value)}${renderDeltaBadge(relativeDelta(value, reference))}</td>`;
+        })
+        .join('');
+      return `<tr><th scope="row">${escapeHtml(row.label)}</th>${cells}</tr>`;
     })
     .join('');
 
@@ -1654,31 +1664,19 @@ function renderComparisonTable(container, { rows, columns, ranges = null, source
   `;
 }
 
-function buildComparisonCell(row, column, range, source, showDelta, windowed) {
-  const rawSession = column.track?.session && row.session ? row.session(column.track.session) : null;
-  const sessionValue = Number.isFinite(rawSession) ? rawSession : null;
-
-  if (source === 'session') {
-    return { value: sessionValue, html: `<td>${formatComparisonValue(row, sessionValue)}</td>` };
-  }
-
-  const computed = readComputedValue(row, column.track, range, windowed);
-  const value = Number.isFinite(computed) ? computed : null;
-  const delta = showDelta ? relativeDelta(value, sessionValue) : null;
-  return { value, html: `<td>${formatComparisonValue(row, value)}${renderDeltaBadge(delta)}</td>` };
+function toFiniteOrNull(value) {
+  return Number.isFinite(value) ? value : null;
 }
 
-// Ohne Fenster gilt die ganze Aktivität.
-function readComputedValue(row, track, range, windowed) {
-  if (!track || !row.computed) {
-    return null;
-  }
+function readSessionValue(row, column) {
+  return column.track?.session && row.session ? row.session(column.track.session) : null;
+}
 
-  if (windowed) {
-    return range ? row.computed(track, range.startTime, range.endTime) : null;
-  }
-
-  return row.computed(track, track.startTime, track.endTime);
+// Fehlt einer Datei das Fenster (kein Treffer beim Distanzfenster), bleibt die
+// Spalte leer -- nicht etwa die ganze Aktivität.
+function readWindowValue(row, column, ranges) {
+  const range = ranges[column.index];
+  return range ? row.computed(column.track, range.startTime, range.endTime) : null;
 }
 
 function relativeDelta(value, reference) {
@@ -2012,24 +2010,6 @@ function interpolateNumeric(start, end, ratio) {
   }
 
   return start + (end - start) * ratio;
-}
-
-function formatMetricValue(value, unit) {
-  if (!Number.isFinite(value)) {
-    return '—';
-  }
-
-  const decimals = unit === 'km/h' || unit === 'km' || unit === 'm' ? 2 : 0;
-  return `${value.toFixed(decimals)} ${unit}`;
-}
-
-function formatValueRow(label, value, unit, color) {
-  return `
-    <div class="track-value-row">
-      <span class="label">${escapeHtml(label)}</span>
-      <span class="value" style="color: ${color}">${formatMetricValue(value, unit)}</span>
-    </div>
-  `;
 }
 
 function escapeHtml(value) {

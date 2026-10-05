@@ -473,18 +473,28 @@ select {
   height: 100% !important;
 }
 
+/* Zwei Spalten, damit die Punkt-Tabellen auch bei mehreren Dateien lesbar sind. */
 .inspector-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
 
+.inspector-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .inspector-card {
-  background: rgba(255, 255, 255, 0.03);
+  /* Deckend statt halbtransparent, damit die sticky Metrik-Spalte darin
+     nahtlos sitzt (siehe --table-sticky-bg). */
+  background: #111a28;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   padding: 14px;
+  --table-sticky-bg: #111a28;
 }
 
 .inspector-head {
@@ -503,27 +513,6 @@ select {
 .inspector-hint {
   color: var(--muted);
   font-size: 0.84rem;
-}
-
-.track-value-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.track-value-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  align-items: center;
-  font-size: 0.92rem;
-}
-
-.track-value-row .label {
-  color: var(--muted);
-}
-
-.track-value-row .value {
-  font-family: "Sora", sans-serif;
 }
 
 .comparison-card .section-header {
@@ -600,7 +589,7 @@ summary.comparison-subhead::marker {
   text-align: left;
   font-weight: 500;
   color: var(--muted);
-  background: linear-gradient(90deg, var(--panel) 85%, rgba(12, 21, 36, 0));
+  background: var(--table-sticky-bg, var(--panel));
   padding-left: 0;
 }
 
