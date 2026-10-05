@@ -123,7 +123,11 @@ const elements = {
   resetPlayback: document.getElementById('resetPlayback'),
   speed: document.getElementById('speed'),
   progress: document.getElementById('progress'),
-  currentTimeLabel: document.getElementById('currentTimeLabel'),
+  currentTimeInput: document.getElementById('currentTimeInput'),
+  skipBack60: document.getElementById('skipBack60'),
+  skipBack10: document.getElementById('skipBack10'),
+  skipForward10: document.getElementById('skipForward10'),
+  skipForward60: document.getElementById('skipForward60'),
   durationLabel: document.getElementById('durationLabel'),
   metricSwitcher: document.getElementById('metricSwitcher'),
   comparisonPanel: document.getElementById('comparisonPanel'),
@@ -367,6 +371,30 @@ function bindEvents() {
     elements.playPause.textContent = '\u25b6';
     updateVisuals();
   });
+  for (const [button, delta] of [
+    [elements.skipBack60, -60],
+    [elements.skipBack10, -10],
+    [elements.skipForward10, 10],
+    [elements.skipForward60, 60],
+  ]) {
+    button.addEventListener('click', () => seekTo(state.currentTime + delta));
+  }
+
+  elements.currentTimeInput.addEventListener('change', () => {
+    const parsed = parseDurationText(elements.currentTimeInput.value);
+    if (parsed === null) {
+      updatePlaybackLabels();
+      return;
+    }
+
+    seekTo(parsed);
+  });
+  elements.currentTimeInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      elements.currentTimeInput.blur();
+    }
+  });
+
   elements.selectionClose.addEventListener('click', clearSelectionWindow);
   elements.distanceSelectionClose.addEventListener('click', clearDistanceSelectionWindow);
 }
@@ -1090,8 +1118,24 @@ function updateVisuals() {
 }
 
 function updatePlaybackLabels() {
-  elements.currentTimeLabel.textContent = formatDuration(state.currentTime);
+  // Nicht dazwischenfunken, solange jemand die Zeit gerade eintippt.
+  if (document.activeElement !== elements.currentTimeInput) {
+    elements.currentTimeInput.value = formatDuration(state.currentTime);
+  }
   elements.durationLabel.textContent = formatDuration(state.duration);
+}
+
+// Springt an eine Stelle der gemeinsamen Zeitachse. Laeuft die Wiedergabe gerade,
+// laeuft sie von dort weiter -- lastFrame zurueckzusetzen verhindert, dass der
+// naechste Frame die uebersprungene Zeit nachholt.
+function seekTo(seconds) {
+  if (!Number.isFinite(seconds)) {
+    return;
+  }
+
+  state.currentTime = Math.max(0, Math.min(state.duration, seconds));
+  state.lastFrame = null;
+  updateVisuals();
 }
 
 function updateMapLayers() {
@@ -1759,6 +1803,22 @@ function createChartOverlayPlugin() {
         ctx.restore();
         drawVerticalLine(left, 'rgba(77, 225, 193, 0.55)', [6, 4]);
         drawVerticalLine(right, 'rgba(77, 225, 193, 0.55)', [6, 4]);
+      }
+
+      // Playhead: zeigt im Graphen dieselbe Stelle, die auf der Karte als
+      // Positionsmarker sitzt.
+      const playheadPixelX = xScale.getPixelForValue(state.currentTime);
+      if (Number.isFinite(playheadPixelX) && playheadPixelX >= chartArea.left && playheadPixelX <= chartArea.right) {
+        drawVerticalLine(playheadPixelX, 'rgba(244, 211, 94, 0.9)', []);
+        ctx.save();
+        ctx.fillStyle = 'rgba(244, 211, 94, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(playheadPixelX - 5, chartArea.top - 8);
+        ctx.lineTo(playheadPixelX + 5, chartArea.top - 8);
+        ctx.lineTo(playheadPixelX, chartArea.top - 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
       }
 
       if (chartInteraction.hoverPixelX !== null) {

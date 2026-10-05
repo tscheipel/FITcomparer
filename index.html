@@ -94,7 +94,11 @@
         <div class="control-group">
           <label>Playback</label>
           <div class="playback-controls">
+            <button class="secondary-button skip-button" id="skipBack60" type="button" aria-label="Eine Minute zurück" title="Eine Minute zurück">− 1 min</button>
+            <button class="secondary-button skip-button" id="skipBack10" type="button" aria-label="Zehn Sekunden zurück" title="Zehn Sekunden zurück">− 10 s</button>
             <button class="primary-button icon-button" id="playPause" aria-label="Play">▶</button>
+            <button class="secondary-button skip-button" id="skipForward10" type="button" aria-label="Zehn Sekunden vor" title="Zehn Sekunden vor">+ 10 s</button>
+            <button class="secondary-button skip-button" id="skipForward60" type="button" aria-label="Eine Minute vor" title="Eine Minute vor">+ 1 min</button>
             <button class="secondary-button icon-button" id="resetPlayback" aria-label="Reset">↺</button>
             <select id="speed">
               <option value="0.5">0.5x</option>
@@ -116,7 +120,7 @@
       <div class="scrubber">
         <input id="progress" type="range" min="0" max="100" value="0" step="0.1">
         <div class="scrubber-labels">
-          <span id="currentTimeLabel">0:00</span>
+          <input id="currentTimeInput" class="time-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" value="0:00" aria-label="Aktuelle Zeit, bearbeitbar">
           <span id="durationLabel">0:00</span>
         </div>
       </div>

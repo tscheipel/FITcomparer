@@ -454,7 +454,35 @@ select {
 .scrubber-labels {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.94rem;
+}
+
+/* Die Sprungtasten tragen Text statt eines Symbols und brauchen mehr Breite. */
+.skip-button {
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.time-input {
+  width: 104px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  font-family: "Sora", sans-serif;
+  font-size: 0.94rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: rgba(77, 225, 193, 0.55);
+  box-shadow: 0 0 0 3px rgba(77, 225, 193, 0.15);
 }
 
 #map {
@@ -464,7 +492,8 @@ select {
 }
 
 .chart-wrap {
-  height: 360px;
+  height: 374px;
+  padding-top: 14px;
   position: relative;
 }
 
