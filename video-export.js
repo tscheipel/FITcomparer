@@ -17,12 +17,37 @@ const TILE_TIMEOUT_MS = 15000;
 const MUXER_URL = 'https://esm.sh/mp4-muxer@5.1.3';
 const MAX_ENCODE_QUEUE = 8;
 
-// Ziel-Bitraten je Hoehe. Die Karte ist fast statisch und braucht in der Praxis
+// Bildformate. Aufgespannt wird immer ueber die kurze Seite: 720 heisst 1280x720 im
+// 16:9-Querformat, aber 720x1280 im 9:16-Hochformat.
+export const ASPECTS = [
+  { id: '16:9', w: 16, h: 9, label: '16:9 Querformat' },
+  { id: '4:3', w: 4, h: 3, label: '4:3 Querformat' },
+  { id: '1:1', w: 1, h: 1, label: '1:1 Quadrat' },
+  { id: '4:5', w: 4, h: 5, label: '4:5 Hochformat' },
+  { id: '9:16', w: 9, h: 16, label: '9:16 Hochformat (Story/Reel)' },
+];
+
+export const QUALITIES = [
+  { id: '360', shortSide: 360, label: 'Vorschau' },
+  { id: '720', shortSide: 720, label: 'HD' },
+  { id: '1080', shortSide: 1080, label: 'Full HD' },
+];
+
+const toEven = (value) => Math.max(2, Math.round(value / 2) * 2);
+
+// H.264 verlangt gerade Kantenlaengen. Alle Kombinationen bleiben unter dem Limit von
+// Level 4.0 (8192 Makrobloecke je Bild): groesster Fall 1080x1920 = 8160.
+export function frameSize(aspectId, shortSide) {
+  const aspect = ASPECTS.find((entry) => entry.id === aspectId) ?? ASPECTS[0];
+  const factor = shortSide / Math.min(aspect.w, aspect.h);
+  return { width: toEven(aspect.w * factor), height: toEven(aspect.h * factor) };
+}
+
+// Zielbitrate nach Pixelzahl. Die Karte ist fast statisch und braucht in der Praxis
 // weniger; das ist die Obergrenze, mit der auch die Groessenschaetzung rechnet.
-export function bitrateForHeight(height) {
-  if (height >= 1080) return 8_000_000;
-  if (height >= 720) return 4_000_000;
-  return 1_500_000;
+export function bitrateForSize(width, height) {
+  const target = width * height * 4.1;
+  return Math.round(Math.max(1_500_000, Math.min(8_000_000, target)) / 100_000) * 100_000;
 }
 
 export function isVideoExportSupported() {
@@ -83,7 +108,7 @@ async function probeEncoder(config, width, height) {
 // Liefert den ersten Kandidaten, den der Browser nicht nur kennt, sondern dessen
 // Ausgabe der Muxer auch verarbeiten kann. null, wenn keiner taugt.
 export async function chooseEncoderConfig({ width, height, fps }) {
-  const bitrate = bitrateForHeight(height);
+  const bitrate = bitrateForSize(width, height);
 
   for (const candidate of ENCODER_CANDIDATES) {
     const config = { ...candidate.config, width, height, bitrate, framerate: fps };
@@ -100,59 +125,159 @@ export async function chooseEncoderConfig({ width, height, fps }) {
   return null;
 }
 
-// --- Web-Mercator, wie Leaflet/OSM ihn verwenden ---------------------------------
+// --- Web-Mercator in Weltkoordinaten -------------------------------------------------
+//
+// u waechst nach Osten, v nach Sueden, beide in [0, 1). Ein Pixel liegt bei
+// (u - originU) * scale, scale = Pixel je Weltbreite. So laesst sich ein Ausschnitt
+// ohne Bezug zur Aufloesung beschreiben: Vorschau und Export zeigen dasselbe Bild.
 
-function project(lat, lon, zoom) {
-  const scale = TILE_SIZE * 2 ** zoom;
-  const clampedLat = Math.max(-85.0511287798, Math.min(85.0511287798, lat));
-  const sin = Math.sin((clampedLat * Math.PI) / 180);
+const MAX_SCALE = TILE_SIZE * 2 ** MAX_ZOOM;
+const MIN_SCALE = TILE_SIZE * 2;
+const FRAME_PADDING = 0.08;
+const MAX_TILE_ZOOM = 19;
+const TILE_CACHE_LIMIT = 600;
+
+export const AUTO_VIEW = Object.freeze({ mode: 'auto' });
+
+const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+
+function toWorld(lat, lon) {
+  const sin = Math.sin((clamp(lat, -85.0511287798, 85.0511287798) * Math.PI) / 180);
   return {
-    x: ((lon + 180) / 360) * scale,
-    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale,
+    u: (lon + 180) / 360,
+    v: 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI),
   };
 }
 
-function collectBounds(tracks) {
-  let minLat = Infinity;
-  let maxLat = -Infinity;
-  let minLon = Infinity;
-  let maxLon = -Infinity;
+// Die Vorschau zeichnet beim Ziehen dutzende Male neu; die Projektion von zehntausenden
+// Punkten je Track soll dann nicht jedes Mal anfallen.
+const worldCache = new WeakMap();
+
+function worldPoints(track) {
+  let points = worldCache.get(track.mapSamples);
+  if (!points) {
+    const count = track.mapSamples.length;
+    points = { u: new Float64Array(count), v: new Float64Array(count) };
+    track.mapSamples.forEach((sample, index) => {
+      const world = toWorld(sample.lat, sample.lon);
+      points.u[index] = world.u;
+      points.v[index] = world.v;
+    });
+    worldCache.set(track.mapSamples, points);
+  }
+  return points;
+}
+
+function collectWorldBounds(tracks) {
+  let minU = Infinity;
+  let maxU = -Infinity;
+  let minV = Infinity;
+  let maxV = -Infinity;
 
   for (const track of tracks) {
-    for (const sample of track.mapSamples) {
-      if (sample.lat < minLat) minLat = sample.lat;
-      if (sample.lat > maxLat) maxLat = sample.lat;
-      if (sample.lon < minLon) minLon = sample.lon;
-      if (sample.lon > maxLon) maxLon = sample.lon;
+    const points = worldPoints(track);
+    for (let index = 0; index < points.u.length; index++) {
+      if (points.u[index] < minU) minU = points.u[index];
+      if (points.u[index] > maxU) maxU = points.u[index];
+      if (points.v[index] < minV) minV = points.v[index];
+      if (points.v[index] > maxV) maxV = points.v[index];
     }
   }
 
-  return Number.isFinite(minLat) ? { minLat, maxLat, minLon, maxLon } : null;
+  return Number.isFinite(minU) ? { minU, maxU, minV, maxV } : null;
 }
 
-// Groesster ganzzahliger Zoom, bei dem der gepolsterte Ausschnitt ins Bild passt.
-function fitViewport(bounds, width, height) {
-  const padding = Math.round(0.08 * Math.min(width, height));
+// Massstab, bei dem alle Tracks mit Rand ins Bild passen.
+function fitScale(bounds, width, height) {
+  const padding = FRAME_PADDING * Math.min(width, height);
+  const spanU = Math.max(bounds.maxU - bounds.minU, 1e-9);
+  const spanV = Math.max(bounds.maxV - bounds.minV, 1e-9);
+  return clamp(Math.min((width - 2 * padding) / spanU, (height - 2 * padding) / spanV), MIN_SCALE, MAX_SCALE);
+}
 
-  for (let zoom = MAX_ZOOM; zoom >= MIN_ZOOM; zoom--) {
-    const topLeft = project(bounds.maxLat, bounds.minLon, zoom);
-    const bottomRight = project(bounds.minLat, bounds.maxLon, zoom);
-    const fits = (bottomRight.x - topLeft.x) <= width - 2 * padding
-      && (bottomRight.y - topLeft.y) <= height - 2 * padding;
+/**
+ * view: AUTO_VIEW (alle Tracks) oder { mode: 'manual', centerU, centerV, zoom }, wobei
+ * zoom der Faktor gegenueber dem automatischen Ausschnitt ist.
+ */
+export function computeViewport(view, bounds, width, height) {
+  const fit = fitScale(bounds, width, height);
+  const manual = view?.mode === 'manual';
+  const scale = clamp(fit * (manual ? view.zoom : 1), MIN_SCALE, MAX_SCALE);
+  const centerU = manual ? view.centerU : (bounds.minU + bounds.maxU) / 2;
+  const centerV = manual ? view.centerV : (bounds.minV + bounds.maxV) / 2;
+  return {
+    width,
+    height,
+    scale,
+    fit,
+    centerU,
+    centerV,
+    originU: centerU - width / (2 * scale),
+    originV: centerV - height / (2 * scale),
+  };
+}
 
-    if (fits || zoom === MIN_ZOOM) {
-      return {
-        zoom,
-        originX: (topLeft.x + bottomRight.x) / 2 - width / 2,
-        originY: (topLeft.y + bottomRight.y) / 2 - height / 2,
-      };
-    }
+function toPixel(lat, lon, viewport) {
+  const world = toWorld(lat, lon);
+  return { x: (world.u - viewport.originU) * viewport.scale, y: (world.v - viewport.originV) * viewport.scale };
+}
+
+// --- Ausschnitt veraendern (Pixelangaben beziehen sich auf die Zeichenflaeche) ----------
+
+export function panView(viewport, dxPixels, dyPixels) {
+  return {
+    mode: 'manual',
+    centerU: viewport.centerU - dxPixels / viewport.scale,
+    centerV: viewport.centerV - dyPixels / viewport.scale,
+    zoom: viewport.scale / viewport.fit,
+  };
+}
+
+// Zoomt so, dass der Weltpunkt unter (pixelX, pixelY) an Ort und Stelle bleibt.
+export function zoomView(viewport, factor, pixelX, pixelY) {
+  const scale = clamp(viewport.scale * factor, MIN_SCALE, MAX_SCALE);
+  const u = viewport.originU + pixelX / viewport.scale;
+  const v = viewport.originV + pixelY / viewport.scale;
+  const originU = u - pixelX / scale;
+  const originV = v - pixelY / scale;
+  return {
+    mode: 'manual',
+    centerU: originU + viewport.width / (2 * scale),
+    centerV: originV + viewport.height / (2 * scale),
+    zoom: scale / viewport.fit,
+  };
+}
+
+// Zoom ueber den Regler: um die Bildmitte, absolut gegenueber dem automatischen Ausschnitt.
+export function setViewZoom(viewport, zoomFactor) {
+  const scale = clamp(viewport.fit * zoomFactor, MIN_SCALE, MAX_SCALE);
+  return { mode: 'manual', centerU: viewport.centerU, centerV: viewport.centerV, zoom: scale / viewport.fit };
+}
+
+// Uebernimmt einen Kartenausschnitt (z. B. von Leaflet) als Bildausschnitt: er wird
+// vollstaendig ins Bild eingepasst.
+export function viewFromLatLngBounds(latLngBounds, tracks, width, height) {
+  const bounds = collectWorldBounds(tracks.filter((track) => track.mapSamples.length));
+  if (!bounds) {
+    return AUTO_VIEW;
   }
 
-  return null;
+  const northWest = toWorld(latLngBounds.north, latLngBounds.west);
+  const southEast = toWorld(latLngBounds.south, latLngBounds.east);
+  const spanU = Math.max(southEast.u - northWest.u, 1e-9);
+  const spanV = Math.max(southEast.v - northWest.v, 1e-9);
+  const scale = clamp(Math.min(width / spanU, height / spanV), MIN_SCALE, MAX_SCALE);
+  return {
+    mode: 'manual',
+    centerU: (northWest.u + southEast.u) / 2,
+    centerV: (northWest.v + southEast.v) / 2,
+    zoom: scale / fitScale(bounds, width, height),
+  };
 }
 
-// --- Kacheln ---------------------------------------------------------------------
+// --- Kacheln (mit Cache: Vorschau und Export teilen sich geladene Kacheln) --------------
+
+const tileCache = new Map();
 
 function loadTile(zoom, x, y) {
   return new Promise((resolve) => {
@@ -171,12 +296,36 @@ function loadTile(zoom, x, y) {
   });
 }
 
-async function drawTiles(ctx, viewport, width, height, onProgress, signal) {
-  const worldTiles = 2 ** viewport.zoom;
-  const firstX = Math.floor(viewport.originX / TILE_SIZE);
-  const lastX = Math.floor((viewport.originX + width) / TILE_SIZE);
-  const firstY = Math.max(0, Math.floor(viewport.originY / TILE_SIZE));
-  const lastY = Math.min(worldTiles - 1, Math.floor((viewport.originY + height) / TILE_SIZE));
+function requestTile(zoom, x, y) {
+  const key = `${zoom}/${x}/${y}`;
+  let entry = tileCache.get(key);
+  if (!entry) {
+    entry = { image: null, promise: null };
+    entry.promise = loadTile(zoom, x, y).then((image) => {
+      entry.image = image;
+      if (!image) {
+        // Fehlgeschlagene Kacheln nicht merken, damit ein neuer Versuch moeglich bleibt.
+        tileCache.delete(key);
+      }
+      return image;
+    });
+    tileCache.set(key, entry);
+    if (tileCache.size > TILE_CACHE_LIMIT) {
+      tileCache.delete(tileCache.keys().next().value);
+    }
+  }
+  return entry;
+}
+
+// loadMissing=false zeichnet nur, was schon im Cache liegt (fluessiges Ziehen in der
+// Vorschau); true laedt fehlende Kacheln nach.
+async function drawTiles(ctx, viewport, { loadMissing, onProgress, signal }) {
+  const tileZoom = clamp(Math.round(Math.log2(viewport.scale / TILE_SIZE)), 0, MAX_TILE_ZOOM);
+  const worldTiles = 2 ** tileZoom;
+  const firstX = Math.floor(viewport.originU * worldTiles);
+  const lastX = Math.floor((viewport.originU + viewport.width / viewport.scale) * worldTiles);
+  const firstY = Math.max(0, Math.floor(viewport.originV * worldTiles));
+  const lastY = Math.min(worldTiles - 1, Math.floor((viewport.originV + viewport.height / viewport.scale) * worldTiles));
 
   const jobs = [];
   for (let tileY = firstY; tileY <= lastY; tileY++) {
@@ -185,24 +334,50 @@ async function drawTiles(ctx, viewport, width, height, onProgress, signal) {
     }
   }
 
-  let done = 0;
-  let failed = 0;
-  await Promise.all(jobs.map(async (job) => {
-    const image = await loadTile(viewport.zoom, job.wrappedX, job.tileY);
-    signal?.throwIfAborted();
-    done++;
-    onProgress?.(done, jobs.length);
-    if (!image) {
-      failed++;
-      return;
-    }
-    ctx.drawImage(image, job.tileX * TILE_SIZE - viewport.originX, job.tileY * TILE_SIZE - viewport.originY);
-  }));
+  const paint = (job, image) => {
+    const left = Math.floor((job.tileX / worldTiles - viewport.originU) * viewport.scale);
+    const top = Math.floor((job.tileY / worldTiles - viewport.originV) * viewport.scale);
+    const right = Math.ceil(((job.tileX + 1) / worldTiles - viewport.originU) * viewport.scale);
+    const bottom = Math.ceil(((job.tileY + 1) / worldTiles - viewport.originV) * viewport.scale);
+    ctx.drawImage(image, left, top, right - left, bottom - top);
+  };
 
-  return { total: jobs.length, failed };
+  let drawn = 0;
+  let failed = 0;
+
+  if (loadMissing) {
+    let done = 0;
+    const images = await Promise.all(jobs.map(async (job) => {
+      const image = await requestTile(tileZoom, job.wrappedX, job.tileY).promise;
+      done++;
+      onProgress?.(done, jobs.length);
+      return image;
+    }));
+    signal?.throwIfAborted();
+    images.forEach((image, index) => {
+      if (image) {
+        paint(jobs[index], image);
+        drawn++;
+      } else {
+        failed++;
+      }
+    });
+  } else {
+    for (const job of jobs) {
+      const image = tileCache.get(`${tileZoom}/${job.wrappedX}/${job.tileY}`)?.image;
+      if (image) {
+        paint(job, image);
+        drawn++;
+      } else {
+        failed++;
+      }
+    }
+  }
+
+  return { total: jobs.length, failed, drawn, tileZoom };
 }
 
-// --- statische Ebene: Kacheln, Tracks, Legende, Attribution -------------------------
+// --- statische Ebene: Kacheln, Tracks, Legende, Attribution ---------------------------
 
 function drawTracks(ctx, tracks, viewport, lineWidth) {
   ctx.save();
@@ -212,22 +387,36 @@ function drawTracks(ctx, tracks, viewport, lineWidth) {
   ctx.globalAlpha = 0.9;
 
   for (const track of tracks) {
-    if (!track.mapSamples.length) {
+    const points = worldPoints(track);
+    if (!points.u.length) {
       continue;
     }
 
     ctx.strokeStyle = track.color;
     ctx.beginPath();
-    track.mapSamples.forEach((sample, index) => {
-      const point = project(sample.lat, sample.lon, viewport.zoom);
-      const x = point.x - viewport.originX;
-      const y = point.y - viewport.originY;
+    let lastX = 0;
+    let lastY = 0;
+    let skipped = false;
+    for (let index = 0; index < points.u.length; index++) {
+      const x = (points.u[index] - viewport.originU) * viewport.scale;
+      const y = (points.v[index] - viewport.originV) * viewport.scale;
       if (index === 0) {
         ctx.moveTo(x, y);
-      } else {
+      } else if (Math.abs(x - lastX) >= 0.6 || Math.abs(y - lastY) >= 0.6) {
+        // Punkte unter einem halben Pixel Abstand tragen nichts zum Bild bei.
         ctx.lineTo(x, y);
+      } else {
+        skipped = true;
+        continue;
       }
-    });
+      lastX = x;
+      lastY = y;
+      skipped = false;
+    }
+    if (skipped) {
+      const last = points.u.length - 1;
+      ctx.lineTo((points.u[last] - viewport.originU) * viewport.scale, (points.v[last] - viewport.originV) * viewport.scale);
+    }
     ctx.stroke();
   }
 
@@ -244,8 +433,10 @@ function roundedRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
+// Alle Groessen haengen an der kurzen Bildseite, damit Hoch- und Querformat gleich
+// aussehen (720 kurze Seite = Referenz).
 function drawLegend(ctx, tracks, width, height) {
-  const unit = height / 720;
+  const unit = Math.min(width, height) / 720;
   const fontSize = Math.round(14 * unit);
   const margin = Math.round(16 * unit);
   const padX = Math.round(12 * unit);
@@ -308,9 +499,9 @@ function drawLegend(ctx, tracks, width, height) {
 
 // Lizenzpflicht der OSM-Kacheln.
 function drawAttribution(ctx, width, height) {
-  const unit = height / 720;
+  const unit = Math.min(width, height) / 720;
   const fontSize = Math.round(11 * unit);
-  const text = '© OpenStreetMap-Mitwirkende';
+  const text = '\u00a9 OpenStreetMap-Mitwirkende';
 
   ctx.save();
   ctx.font = `${fontSize}px "IBM Plex Sans", system-ui, sans-serif`;
@@ -323,6 +514,63 @@ function drawAttribution(ctx, width, height) {
   ctx.fillStyle = '#333';
   ctx.fillText(text, width - boxWidth + padX, height - boxHeight / 2);
   ctx.restore();
+}
+
+async function paintBase(ctx, tracks, viewport, { loadMissing, onTileProgress, signal }) {
+  const { width, height } = viewport;
+  ctx.fillStyle = '#0b1626';
+  ctx.fillRect(0, 0, width, height);
+
+  const tiles = await drawTiles(ctx, viewport, { loadMissing, onProgress: onTileProgress, signal });
+  drawTracks(ctx, tracks, viewport, Math.max(3, Math.round(Math.min(width, height) / 180)));
+  drawLegend(ctx, tracks, width, height);
+  if (tiles.drawn > 0) {
+    drawAttribution(ctx, width, height);
+  }
+  return tiles;
+}
+
+function drawMarkers(ctx, tracks, viewport, time) {
+  const unit = Math.min(viewport.width, viewport.height);
+  const radius = Math.max(5, Math.round(unit / 90));
+  const lineWidth = Math.max(2, Math.round(unit / 240));
+
+  for (const track of tracks) {
+    const position = track.positionAt(time);
+    if (!position) {
+      continue;
+    }
+    const point = toPixel(position.lat, position.lon, viewport);
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#06131b';
+    ctx.fill();
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = track.color;
+    ctx.stroke();
+  }
+}
+
+/**
+ * Zeichnet die Vorschau auf ein bestehendes Canvas und liefert den verwendeten
+ * Viewport zurueck (die Oberflaeche braucht ihn zum Verschieben und Zoomen).
+ * loadMissing=false: nur schon geladene Kacheln, ohne Netzwerk.
+ */
+export async function renderPreview(canvas, { tracks, view, time, loadMissing, signal }) {
+  const drawable = tracks.filter((track) => track.mapSamples.length);
+  const ctx = canvas.getContext('2d');
+  const bounds = collectWorldBounds(drawable);
+  if (!bounds) {
+    ctx.fillStyle = '#0b1626';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return null;
+  }
+
+  const viewport = computeViewport(view, bounds, canvas.width, canvas.height);
+  const tiles = await paintBase(ctx, drawable, viewport, { loadMissing, signal });
+  signal?.throwIfAborted();
+  drawMarkers(ctx, drawable, viewport, time);
+  return { viewport, tiles };
 }
 
 // --- avcC reparieren ---------------------------------------------------------------
@@ -449,18 +697,19 @@ function repairAvcMeta(chunk, meta) {
  * @param {number} options.width
  * @param {number} options.height
  * @param {number} options.fps
+ * @param {object} [options.view]     Kartenausschnitt (AUTO_VIEW = alle Tracks)
  * @param {(info: {phase: string, ratio: number, text: string}) => void} [options.onProgress]
  * @param {AbortSignal} [options.signal]
  */
-export async function exportVideo({ tracks, duration, speed, width, height, fps, onProgress, signal }) {
+export async function exportVideo({ tracks, duration, speed, width, height, fps, view = AUTO_VIEW, onProgress, signal }) {
   if (!isVideoExportSupported()) {
-    throw new Error('Dieser Browser unterstützt keinen Videoexport (WebCodecs). Bitte Chrome oder Edge verwenden.');
+    throw new Error('Dieser Browser unterst\u00fctzt keinen Videoexport (WebCodecs). Bitte Chrome oder Edge verwenden.');
   }
 
   const drawable = tracks.filter((track) => track.mapSamples.length);
-  const bounds = collectBounds(drawable);
+  const bounds = collectWorldBounds(drawable);
   if (!bounds) {
-    throw new Error('Keine Positionsdaten vorhanden – ohne GPS gibt es keine Karte zu exportieren.');
+    throw new Error('Keine Positionsdaten vorhanden \u2013 ohne GPS gibt es keine Karte zu exportieren.');
   }
 
   const choice = await chooseEncoderConfig({ width, height, fps });
@@ -472,21 +721,15 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
   const { Muxer, ArrayBufferTarget } = await import(MUXER_URL);
 
   // --- statische Ebene aufbauen
-  const viewport = fitViewport(bounds, width, height);
+  const viewport = computeViewport(view, bounds, width, height);
   const base = new OffscreenCanvas(width, height);
-  const baseCtx = base.getContext('2d');
-  baseCtx.fillStyle = '#0b1626';
-  baseCtx.fillRect(0, 0, width, height);
-
-  const tiles = await drawTiles(baseCtx, viewport, width, height, (done, total) => {
-    onProgress?.({ phase: 'tiles', ratio: done / total, text: `Lade Kartenkacheln (${done}/${total}) …` });
-  }, signal);
-
-  drawTracks(baseCtx, drawable, viewport, Math.max(3, Math.round(height / 180)));
-  drawLegend(baseCtx, drawable, width, height);
-  if (tiles.failed < tiles.total) {
-    drawAttribution(baseCtx, width, height);
-  }
+  const tiles = await paintBase(base.getContext('2d'), drawable, viewport, {
+    loadMissing: true,
+    signal,
+    onTileProgress: (done, total) => {
+      onProgress?.({ phase: 'tiles', ratio: done / total, text: `Lade Kartenkacheln (${done}/${total}) \u2026` });
+    },
+  });
 
   // --- Encoder und Muxer
   const muxer = new Muxer({
@@ -516,8 +759,6 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
 
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d');
-  const markerRadius = Math.max(5, Math.round(height / 90));
-  const markerWidth = Math.max(2, Math.round(height / 240));
   const frameCount = Math.max(2, Math.ceil((duration / speed) * fps) + 1);
   const frameDurationUs = Math.round(1e6 / fps);
 
@@ -533,22 +774,8 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
         await new Promise((resolve) => encoder.addEventListener('dequeue', resolve, { once: true }));
       }
 
-      const time = Math.min(duration, (index * speed) / fps);
       ctx.drawImage(base, 0, 0);
-      for (const track of drawable) {
-        const position = track.positionAt(time);
-        if (!position) {
-          continue;
-        }
-        const point = project(position.lat, position.lon, viewport.zoom);
-        ctx.beginPath();
-        ctx.arc(point.x - viewport.originX, point.y - viewport.originY, markerRadius, 0, Math.PI * 2);
-        ctx.fillStyle = '#06131b';
-        ctx.fill();
-        ctx.lineWidth = markerWidth;
-        ctx.strokeStyle = track.color;
-        ctx.stroke();
-      }
+      drawMarkers(ctx, drawable, viewport, Math.min(duration, (index * speed) / fps));
 
       const frame = new VideoFrame(canvas, { timestamp: index * frameDurationUs, duration: frameDurationUs });
       encoder.encode(frame, { keyFrame: index % (fps * 2) === 0 });
@@ -556,12 +783,12 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
 
       // Der Oberflaeche Luft lassen, damit Fortschritt und Abbrechen reagieren.
       if (index % 10 === 0) {
-        onProgress?.({ phase: 'render', ratio: index / frameCount, text: `Rendere Bild ${index + 1}/${frameCount} …` });
+        onProgress?.({ phase: 'render', ratio: index / frameCount, text: `Rendere Bild ${index + 1}/${frameCount} \u2026` });
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
 
-    onProgress?.({ phase: 'finish', ratio: 1, text: 'Schließe die Datei ab …' });
+    onProgress?.({ phase: 'finish', ratio: 1, text: 'Schlie\u00dfe die Datei ab \u2026' });
     await encoder.flush();
     if (encoderError) {
       throw encoderError;
@@ -583,7 +810,7 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
     blob: new Blob([muxer.target.buffer], { type: 'video/mp4' }),
     frameCount,
     codec: choice.label,
-    zoom: viewport.zoom,
+    zoom: tiles.tileZoom,
     tilesFailed: tiles.failed,
     tilesTotal: tiles.total,
   };

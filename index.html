@@ -227,13 +227,28 @@
         <select id="videoSpeed"></select>
       </label>
       <label class="video-field">
-        <span>Auflösung</span>
-        <select id="videoSize">
-          <option value="640x360">640 × 360 (Vorschau, schnell)</option>
-          <option value="1280x720" selected>1280 × 720</option>
-          <option value="1920x1080">1920 × 1080</option>
-        </select>
+        <span>Format</span>
+        <select id="videoAspect"></select>
       </label>
+      <label class="video-field">
+        <span>Auflösung</span>
+        <select id="videoQuality"></select>
+      </label>
+
+      <div class="video-crop">
+        <div class="video-crop-head">
+          <span>Ausschnitt</span>
+          <span class="video-crop-hint">Ziehen verschiebt, Mausrad, Regler oder zwei Finger zoomen.</span>
+        </div>
+        <canvas class="video-preview" id="videoPreview" width="640" height="360" aria-label="Vorschau des Kartenausschnitts"></canvas>
+        <div class="video-crop-controls">
+          <input type="range" id="videoZoom" min="-2" max="6" step="0.05" value="0" aria-label="Zoom">
+        </div>
+        <div class="video-crop-buttons">
+          <button class="secondary-button" id="videoViewAuto" type="button">Alle Tracks</button>
+          <button class="secondary-button" id="videoViewMap" type="button">Aktueller Kartenausschnitt</button>
+        </div>
+      </div>
 
       <p class="video-estimate" id="videoEstimate"></p>
 

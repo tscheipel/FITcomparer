@@ -7,7 +7,20 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { bitrateForHeight, exportVideo, isVideoExportSupported } from './video-export.js';
+import {
+  ASPECTS,
+  AUTO_VIEW,
+  QUALITIES,
+  bitrateForSize,
+  exportVideo,
+  frameSize,
+  isVideoExportSupported,
+  panView,
+  renderPreview,
+  setViewZoom,
+  viewFromLatLngBounds,
+  zoomView,
+} from './video-export.js';
 
 const METRICS = [
   { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },
@@ -114,7 +127,17 @@ const VIDEO_TARGET_SECONDS = 600;
 const VIDEO_WARN_BYTES = 400e6;
 const VIDEO_MAX_BYTES = 1.5e9;
 
-const videoExportState = { controller: null };
+const videoExportState = {
+  controller: null,
+  view: AUTO_VIEW,
+  viewport: null,
+  previewController: null,
+  previewFrame: 0,
+  previewTimer: 0,
+  pointers: new Map(),
+};
+
+const VIDEO_PREVIEW_SHORT_SIDE = 360;
 
 const state = {
   slots: [],
@@ -147,7 +170,12 @@ const elements = {
   videoDialog: document.getElementById('videoDialog'),
   videoForm: document.getElementById('videoForm'),
   videoSpeed: document.getElementById('videoSpeed'),
-  videoSize: document.getElementById('videoSize'),
+  videoAspect: document.getElementById('videoAspect'),
+  videoQuality: document.getElementById('videoQuality'),
+  videoPreview: document.getElementById('videoPreview'),
+  videoZoom: document.getElementById('videoZoom'),
+  videoViewAuto: document.getElementById('videoViewAuto'),
+  videoViewMap: document.getElementById('videoViewMap'),
   videoEstimate: document.getElementById('videoEstimate'),
   videoProgress: document.getElementById('videoProgress'),
   videoProgressTrack: document.getElementById('videoProgressTrack'),
@@ -342,6 +370,12 @@ function buildSlotCard(slot) {
     'progressValue', 'offsetGroup', 'offsetLabel', 'offsetRange', 'offsetText', 'meta']) {
     slot.el[role] = pick(slot.el.card, role);
   }
+  // Auf Touch-Geraeten (Android/iOS) graut das System-Auswahlfenster Dateien mit
+  // unbekannter Endung wie .fit aus, sobald ein accept-Filter gesetzt ist. Dort
+  // lassen wir ihn weg; die Dateityp-Pruefung macht parseFitnessFile ohnehin.
+  if (window.matchMedia('(pointer: coarse)').matches) {
+    slot.el.file.removeAttribute('accept');
+  }
   elements.fileCards.appendChild(slot.el.card);
 
   slot.el.legend = clone(elements.legendItemTemplate);
@@ -509,10 +543,25 @@ function initVideoExport() {
   elements.videoSpeed.innerHTML = VIDEO_SPEED_STEPS
     .map((step) => `<option value="${step}">${step}\u00d7</option>`)
     .join('');
+  elements.videoAspect.innerHTML = ASPECTS
+    .map((aspect) => `<option value="${aspect.id}">${aspect.label}</option>`)
+    .join('');
+  elements.videoQuality.innerHTML = QUALITIES
+    .map((quality) => `<option value="${quality.id}">${quality.label}</option>`)
+    .join('');
+  elements.videoAspect.value = '16:9';
+  elements.videoQuality.value = '720';
+  refreshQualityLabels();
 
   elements.exportVideoButton.addEventListener('click', openVideoDialog);
   elements.videoSpeed.addEventListener('change', updateVideoEstimate);
-  elements.videoSize.addEventListener('change', updateVideoEstimate);
+  elements.videoAspect.addEventListener('change', () => {
+    refreshQualityLabels();
+    updateVideoEstimate();
+    resizeVideoPreview();
+    scheduleVideoPreview();
+  });
+  elements.videoQuality.addEventListener('change', updateVideoEstimate);
   elements.videoForm.addEventListener('submit', (event) => {
     event.preventDefault();
     runVideoExport();
@@ -521,7 +570,7 @@ function initVideoExport() {
     if (videoExportState.controller) {
       videoExportState.controller.abort();
     } else {
-      elements.videoDialog.close();
+      closeVideoDialog();
     }
   });
   // Esc darf einen laufenden Export abbrechen, aber nicht still den Dialog schliessen.
@@ -531,8 +580,118 @@ function initVideoExport() {
       videoExportState.controller.abort();
     }
   });
+  elements.videoDialog.addEventListener('close', () => {
+    videoExportState.previewController?.abort();
+  });
+
+  bindVideoPreviewEvents();
+
+  elements.videoViewAuto.addEventListener('click', () => {
+    videoExportState.view = AUTO_VIEW;
+    scheduleVideoPreview(true);
+  });
+  elements.videoViewMap.addEventListener('click', () => {
+    const bounds = state.map.getBounds();
+    const { width, height } = elements.videoPreview;
+    videoExportState.view = viewFromLatLngBounds(
+      { north: bounds.getNorth(), south: bounds.getSouth(), west: bounds.getWest(), east: bounds.getEast() },
+      buildVideoTracks(),
+      width,
+      height
+    );
+    scheduleVideoPreview(true);
+  });
+  elements.videoZoom.addEventListener('input', () => {
+    if (!videoExportState.viewport) {
+      return;
+    }
+    videoExportState.view = setViewZoom(videoExportState.viewport, 2 ** Number(elements.videoZoom.value));
+    scheduleVideoPreview();
+  });
 
   updateVideoButton();
+}
+
+function closeVideoDialog() {
+  elements.videoDialog.close();
+}
+
+// Pan per Ziehen, Zoom per Mausrad und per Zwei-Finger-Geste.
+function bindVideoPreviewEvents() {
+  const canvas = elements.videoPreview;
+  const pointers = videoExportState.pointers;
+
+  // Zeigerkoordinaten in Pixel der Zeichenflaeche umrechnen: das Canvas wird per CSS
+  // skaliert, seine interne Aufloesung ist eine andere.
+  const toCanvas = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) * canvas.width) / rect.width,
+      y: ((event.clientY - rect.top) * canvas.height) / rect.height,
+    };
+  };
+  const pinchDistance = () => {
+    const [a, b] = [...pointers.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  canvas.addEventListener('pointerdown', (event) => {
+    if (videoExportState.controller) {
+      return;
+    }
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      // bewusst ignoriert
+    }
+    pointers.set(event.pointerId, toCanvas(event));
+    canvas.classList.add('dragging');
+  });
+
+  canvas.addEventListener('pointermove', (event) => {
+    if (!pointers.has(event.pointerId) || !videoExportState.viewport) {
+      return;
+    }
+
+    const previous = pointers.get(event.pointerId);
+    const current = toCanvas(event);
+
+    if (pointers.size === 1) {
+      videoExportState.view = panView(videoExportState.viewport, current.x - previous.x, current.y - previous.y);
+    } else if (pointers.size === 2) {
+      const before = pinchDistance();
+      pointers.set(event.pointerId, current);
+      const after = pinchDistance();
+      const [a, b] = [...pointers.values()];
+      if (before > 0) {
+        videoExportState.view = zoomView(videoExportState.viewport, after / before, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      }
+    }
+
+    pointers.set(event.pointerId, current);
+    scheduleVideoPreview();
+  });
+
+  const release = (event) => {
+    pointers.delete(event.pointerId);
+    if (!pointers.size) {
+      canvas.classList.remove('dragging');
+      // Erst jetzt fehlende Kacheln nachladen; waehrend des Ziehens nur Cache.
+      scheduleVideoPreview(true);
+    }
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  canvas.addEventListener('wheel', (event) => {
+    if (videoExportState.controller || !videoExportState.viewport) {
+      return;
+    }
+    event.preventDefault();
+    const point = toCanvas(event);
+    videoExportState.view = zoomView(videoExportState.viewport, Math.exp(-event.deltaY * 0.0015), point.x, point.y);
+    scheduleVideoPreview();
+  }, { passive: false });
 }
 
 function updateVideoButton() {
@@ -548,6 +707,20 @@ function updateVideoButton() {
   elements.exportVideoButton.title = reason;
 }
 
+function buildVideoTracks() {
+  return getLoadedSlots()
+    .filter((slot) => slot.track.mapSamples.length)
+    .map((slot) => ({
+      name: getSlotDisplayName(slot),
+      color: slot.color,
+      mapSamples: slot.track.mapSamples,
+      // Gleiche Zeitabbildung wie die Karte: Offsets pro Datei, und vor Start bzw.
+      // nach Ende bleibt der Marker am ersten bzw. letzten Punkt stehen.
+      positionAt: (overallTime) =>
+        interpolatePosition(slot.track.mapSamples, getSlotTime(slot, overallTime)),
+    }));
+}
+
 function openVideoDialog() {
   state.isPlaying = false;
   state.lastFrame = null;
@@ -560,19 +733,84 @@ function openVideoDialog() {
   elements.videoProgress.classList.add('hidden');
   elements.videoStatus.textContent = '';
   elements.videoCancel.textContent = 'Schlie\u00dfen';
+  videoExportState.view = AUTO_VIEW;
+  videoExportState.viewport = null;
   updateVideoEstimate();
+  resizeVideoPreview();
   elements.videoDialog.showModal();
+  scheduleVideoPreview(true);
 }
 
 function readVideoSettings() {
-  const [width, height] = elements.videoSize.value.split('x').map(Number);
+  const quality = QUALITIES.find((entry) => entry.id === elements.videoQuality.value) ?? QUALITIES[1];
+  const { width, height } = frameSize(elements.videoAspect.value, quality.shortSide);
   return { speed: Number(elements.videoSpeed.value), width, height };
 }
 
+// Hinter jeder Aufloesungsstufe steht die daraus folgende Bildgroesse.
+function refreshQualityLabels() {
+  for (const option of elements.videoQuality.options) {
+    const quality = QUALITIES.find((entry) => entry.id === option.value);
+    const { width, height } = frameSize(elements.videoAspect.value, quality.shortSide);
+    option.textContent = `${quality.label} (${width} \u00d7 ${height})`;
+  }
+}
+
+// Die Vorschau hat dasselbe Seitenverhaeltnis wie das Video, aber immer nur 360 px
+// kurze Seite: so zeigt sie denselben Ausschnitt, ohne beim Ziehen zu ruckeln.
+function resizeVideoPreview() {
+  const { width, height } = frameSize(elements.videoAspect.value, VIDEO_PREVIEW_SHORT_SIDE);
+  elements.videoPreview.width = width;
+  elements.videoPreview.height = height;
+  elements.videoPreview.style.aspectRatio = `${width} / ${height}`;
+}
+
+// Zeichnet hoechstens einmal je Bild neu. withTiles=true laedt zusaetzlich fehlende
+// Kacheln nach, aber erst nach einer kurzen Ruhepause, damit beim Ziehen und Zoomen
+// nicht fuer jeden Zwischenschritt Kacheln angefragt werden.
+function scheduleVideoPreview(withTiles = false) {
+  if (!elements.videoDialog.open) {
+    return;
+  }
+
+  cancelAnimationFrame(videoExportState.previewFrame);
+  clearTimeout(videoExportState.previewTimer);
+  videoExportState.previewFrame = requestAnimationFrame(() => {
+    paintVideoPreview(false);
+    // Das Nachladen der Kacheln wird erst hier eingeplant: ein sofortiger Aufruf
+    // wuerde sonst vom Neuzeichnen gleich darueber wieder abgebrochen.
+    videoExportState.previewTimer = setTimeout(() => paintVideoPreview(true), withTiles ? 0 : 250);
+  });
+}
+
+async function paintVideoPreview(loadMissing) {
+  videoExportState.previewController?.abort();
+  const controller = new AbortController();
+  videoExportState.previewController = controller;
+
+  try {
+    const result = await renderPreview(elements.videoPreview, {
+      tracks: buildVideoTracks(),
+      view: videoExportState.view,
+      time: state.currentTime,
+      loadMissing,
+      signal: controller.signal,
+    });
+    if (result && !controller.signal.aborted) {
+      videoExportState.viewport = result.viewport;
+      elements.videoZoom.value = String(Math.log2(result.viewport.scale / result.viewport.fit));
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.error(error);
+    }
+  }
+}
+
 function updateVideoEstimate() {
-  const { speed, height } = readVideoSettings();
+  const { speed, width, height } = readVideoSettings();
   const seconds = state.duration / speed;
-  const bytes = (bitrateForHeight(height) * seconds) / 8;
+  const bytes = (bitrateForSize(width, height) * seconds) / 8;
   const frames = Math.ceil(seconds * VIDEO_FPS);
 
   let text = `Video: ${formatDuration(seconds)} \u00b7 ${frames.toLocaleString('de-DE')} Bilder \u00b7 bis ca. ${formatBytes(bytes)}`;
@@ -595,9 +833,18 @@ function setVideoProgress(ratio, text) {
 }
 
 function setVideoBusy(busy) {
-  elements.videoSpeed.disabled = busy;
-  elements.videoSize.disabled = busy;
-  elements.videoStart.disabled = busy;
+  for (const control of [
+    elements.videoSpeed,
+    elements.videoAspect,
+    elements.videoQuality,
+    elements.videoZoom,
+    elements.videoViewAuto,
+    elements.videoViewMap,
+    elements.videoStart,
+  ]) {
+    control.disabled = busy;
+  }
+  elements.videoPreview.classList.toggle('locked', busy);
   elements.videoProgressTrack.classList.toggle('loading', busy);
   elements.videoCancel.textContent = busy ? 'Abbrechen' : 'Schlie\u00dfen';
   if (!busy) {
@@ -608,16 +855,10 @@ function setVideoBusy(busy) {
 async function runVideoExport() {
   const { speed, width, height } = readVideoSettings();
   const slots = getLoadedSlots().filter((slot) => slot.track.mapSamples.length);
-  const tracks = slots.map((slot) => ({
-    name: getSlotDisplayName(slot),
-    color: slot.color,
-    mapSamples: slot.track.mapSamples,
-    // Gleiche Zeitabbildung wie die Karte: Offsets pro Datei, und vor Start bzw.
-    // nach Ende bleibt der Marker am ersten bzw. letzten Punkt stehen.
-    positionAt: (overallTime) =>
-      interpolatePosition(slot.track.mapSamples, getSlotTime(slot, overallTime)),
-  }));
+  const tracks = buildVideoTracks();
 
+  videoExportState.previewController?.abort();
+  clearTimeout(videoExportState.previewTimer);
   const controller = new AbortController();
   videoExportState.controller = controller;
   setVideoBusy(true);
@@ -631,6 +872,7 @@ async function runVideoExport() {
       width,
       height,
       fps: VIDEO_FPS,
+      view: videoExportState.view,
       signal: controller.signal,
       onProgress: ({ phase, ratio, text }) => {
         const mapped = phase === 'tiles' ? ratio * 0.1 : phase === 'render' ? 0.1 + ratio * 0.88 : 1;
@@ -638,8 +880,8 @@ async function runVideoExport() {
       },
     });
 
-    downloadBlob(result.blob, buildVideoFileName(slots));
-    const notes = [`Fertig: ${result.codec}, ${result.frameCount.toLocaleString('de-DE')} Bilder, ${formatBytes(result.blob.size)}.`];
+    downloadBlob(result.blob, buildVideoFileName(slots, width, height));
+    const notes = [`Fertig: ${result.codec}, ${width} \u00d7 ${height}, ${result.frameCount.toLocaleString('de-DE')} Bilder, ${formatBytes(result.blob.size)}.`];
     if (result.tilesFailed) {
       notes.push(`${result.tilesFailed} von ${result.tilesTotal} Kacheln konnten nicht geladen werden, der Hintergrund ist dort leer.`);
     }
@@ -654,16 +896,17 @@ async function runVideoExport() {
   } finally {
     videoExportState.controller = null;
     setVideoBusy(false);
+    scheduleVideoPreview(true);
   }
 }
 
-function buildVideoFileName(slots) {
+function buildVideoFileName(slots, width, height) {
   const base = slots
     .map((slot) => getSlotDisplayName(slot).replace(/\.[^.]+$/, ''))
     .join('_vs_')
     .replace(/[^\w\-\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df.]+/g, '_')
-    .slice(0, 80);
-  return `${base || 'aktivitaet'}.mp4`;
+    .slice(0, 70);
+  return `${base || 'aktivitaet'}_${width}x${height}.mp4`;
 }
 
 function downloadBlob(blob, fileName) {
