@@ -9,32 +9,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FITcomparer – Garmin FIT- und GPX-Aktivitäten vergleichen</title>
-  <meta name="description" content="FITcomparer vergleicht Garmin-Aktivitäten (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.">
+  <title>FITcomparer – FIT- und GPX-Aktivitäten von Garmin, Wahoo, COROS &amp; Co. vergleichen</title>
+  <meta name="description" content="FITcomparer vergleicht Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar und Strava (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="author" content="Tobias Scheipel">
   <link rel="canonical" href="https://fit.scheipel.com/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="FITcomparer">
   <meta property="og:locale" content="de_DE">
-  <meta property="og:title" content="FITcomparer – Garmin FIT- und GPX-Aktivitäten vergleichen">
-  <meta property="og:description" content="FITcomparer vergleicht Garmin-Aktivitäten (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.">
+  <meta property="og:title" content="FITcomparer – FIT- und GPX-Aktivitäten von Garmin, Wahoo, COROS &amp; Co. vergleichen">
+  <meta property="og:description" content="FITcomparer vergleicht Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar und Strava (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.">
   <meta property="og:url" content="https://fit.scheipel.com/">
   <meta property="og:image" content="https://fit.scheipel.com/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="FITcomparer mit zwei verglichenen Garmin-Aktivitäten">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="FITcomparer – Garmin FIT- und GPX-Aktivitäten vergleichen">
-  <meta name="twitter:description" content="FITcomparer vergleicht Garmin-Aktivitäten (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.">
+  <meta name="twitter:title" content="FITcomparer – FIT- und GPX-Aktivitäten von Garmin, Wahoo, COROS &amp; Co. vergleichen">
+  <meta name="twitter:description" content="FITcomparer vergleicht Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar und Strava (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.">
   <meta name="twitter:image" content="https://fit.scheipel.com/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="icon" href="./favicon.svg?v=6" type="image/svg+xml">
-  <link rel="icon" href="./favicon-32.png?v=6" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=6">
+  <link rel="icon" href="./favicon.svg?v=7" type="image/svg+xml">
+  <link rel="icon" href="./favicon-32.png?v=7" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=7">
   <meta name="theme-color" content="#07111d">
   <script type="application/ld+json">
 {
@@ -42,7 +42,7 @@
   "@type": "WebApplication",
   "name": "FITcomparer",
   "url": "https://fit.scheipel.com/",
-  "description": "FITcomparer vergleicht Garmin-Aktivitäten (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.",
+  "description": "FITcomparer vergleicht Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar und Strava (FIT, GPX, Garmin-Connect-ZIP) nebeneinander: Kennzahlen, Karte, Graph, Zeit- und Distanzfenster und MP4-Video-Export. Kostenlos, direkt im Browser, ohne Upload.",
   "applicationCategory": "SportsApplication",
   "operatingSystem": "Alle (Webbrowser)",
   "inLanguage": "de",
@@ -69,7 +69,7 @@
   ]
 }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=7">
 </head>
 <body>
   <div class="backdrop backdrop-a"></div>
@@ -108,7 +108,7 @@
           </div>
         </div>
         <label class="file-drop">
-          <input type="file" data-role="file" accept=".gpx,.fit,.zip,application/gpx+xml,application/zip,application/x-zip-compressed,application/octet-stream" hidden>
+          <input type="file" data-role="file" accept=".gpx,.fit,.zip,.gz,application/gzip,application/gpx+xml,application/zip,application/x-zip-compressed,application/octet-stream" hidden>
           <span>Datei auswählen</span>
           <small>FIT, GPX oder Garmin-ZIP</small>
         </label>
@@ -313,8 +313,8 @@
 
   <section class="about-site">
     <h1>FITcomparer: Garmin-Aktivitäten vergleichen</h1>
-    <p>FITcomparer legt zwei bis sechs Aktivitäten von deiner Garmin-Uhr oder deinem Radcomputer nebeneinander: Distanz, Zeit, Puls, Leistung, Kadenz und Höhenmeter, dazu Karte, Graph und ein Vergleich beliebiger Zeit- oder Streckenabschnitte. Mit dem Start-Offset gleichst du bei Rennen oder gemeinsamen Ausfahrten ungleiche Startzeiten aus, und auf Wunsch speicherst du den Vergleich als MP4-Video.</p>
-    <p>Du lädst FIT-Dateien, GPX-Dateien oder das ZIP aus Garmin Connect (Web) direkt hier. Alles läuft in deinem Browser, deine Dateien werden nicht an einen Server gesendet. <a href="./help.html">Zur Anleitung</a> mit Schritt-für-Schritt-Hilfe zum Export aus Garmin Connect.</p>
+    <p>FITcomparer legt zwei bis sechs Aktivitäten von deiner Garmin-, Wahoo-, COROS-, Suunto- oder Polar-Uhr oder deinem Radcomputer nebeneinander: Distanz, Zeit, Puls, Leistung, Kadenz und Höhenmeter, dazu Karte, Graph und ein Vergleich beliebiger Zeit- oder Streckenabschnitte. Mit dem Start-Offset gleichst du bei Rennen oder gemeinsamen Ausfahrten ungleiche Startzeiten aus, und auf Wunsch speicherst du den Vergleich als MP4-Video.</p>
+    <p>Du lädst FIT-Dateien, GPX-Dateien oder das ZIP aus Garmin Connect (Web) direkt hier, auch Exporte von Strava, Wahoo, COROS &amp; Co. funktionieren. Alles läuft in deinem Browser, deine Dateien werden nicht an einen Server gesendet. <a href="./help.html">Zur Anleitung</a> mit Schritt-für-Schritt-Hilfe zum Export aus Garmin Connect und den Wegen bei anderen Plattformen.</p>
   </section>
 
   <footer class="site-footer">
@@ -383,6 +383,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="./app.js?v=6"></script>
+  <script type="module" src="./app.js?v=7"></script>
 </body>
 </html>

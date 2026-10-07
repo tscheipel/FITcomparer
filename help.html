@@ -10,7 +10,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FITcomparer – Anleitung: Aktivitäten aus Garmin Connect exportieren und vergleichen</title>
-  <meta name="description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
+  <meta name="description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="author" content="Tobias Scheipel">
   <link rel="canonical" href="https://fit.scheipel.com/help.html">
@@ -18,7 +18,7 @@
   <meta property="og:site_name" content="FITcomparer">
   <meta property="og:locale" content="de_DE">
   <meta property="og:title" content="FITcomparer – Anleitung: Aktivitäten aus Garmin Connect exportieren und vergleichen">
-  <meta property="og:description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
+  <meta property="og:description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
   <meta property="og:url" content="https://fit.scheipel.com/help.html">
   <meta property="og:image" content="https://fit.scheipel.com/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -26,21 +26,21 @@
   <meta property="og:image:alt" content="FITcomparer mit zwei verglichenen Garmin-Aktivitäten">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="FITcomparer – Anleitung: Aktivitäten aus Garmin Connect exportieren und vergleichen">
-  <meta name="twitter:description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
+  <meta name="twitter:description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
   <meta name="twitter:image" content="https://fit.scheipel.com/og-image.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="icon" href="./favicon.svg?v=6" type="image/svg+xml">
-  <link rel="icon" href="./favicon-32.png?v=6" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=6">
+  <link rel="icon" href="./favicon.svg?v=7" type="image/svg+xml">
+  <link rel="icon" href="./favicon-32.png?v=7" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=7">
   <meta name="theme-color" content="#07111d">
   <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "HowTo",
   "name": "Aktivität aus Garmin Connect (Web) exportieren und in FITcomparer vergleichen",
-  "description": "Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.",
+  "description": "Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.",
   "inLanguage": "de",
   "image": "https://fit.scheipel.com/docs/img/garmin-export.webp",
   "step": [
@@ -72,8 +72,8 @@
   ]
 }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=6">
-  <link rel="stylesheet" href="./help.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=7">
+  <link rel="stylesheet" href="./help.css?v=7">
 </head>
 <body>
   <div class="backdrop backdrop-a"></div>
@@ -101,6 +101,7 @@
         <li><a href="#was-ist-das">Wofür ist FITcomparer gut?</a></li>
         <li><a href="#schnellstart">Schnellstart in vier Schritten</a></li>
         <li><a href="#garmin-export">Dateien aus Garmin Connect holen (Web)</a></li>
+        <li><a href="#andere-plattformen">Dateien aus anderen Plattformen</a></li>
         <li><a href="#bedienung">Bedienung Schritt für Schritt</a>
           <ol>
             <li><a href="#dateien">Dateien laden, benennen, einfärben</a></li>
@@ -135,7 +136,7 @@
     <section class="doc" id="schnellstart">
       <h2>Schnellstart in vier Schritten</h2>
       <ol class="steps">
-        <li><strong>Dateien holen.</strong> Exportiere deine Aktivitäten in Garmin Connect auf der Webseite, wie im <a href="#garmin-export">nächsten Abschnitt</a> beschrieben. Du erhältst je ein ZIP.</li>
+        <li><strong>Dateien holen.</strong> Exportiere deine Aktivitäten in Garmin Connect auf der Webseite, wie im <a href="#garmin-export">nächsten Abschnitt</a> beschrieben. Du erhältst je ein ZIP. Andere Plattformen wie Strava, Wahoo oder COROS gehen auch, siehe <a href="#andere-plattformen">Dateien aus anderen Plattformen</a>.</li>
         <li><strong>Laden.</strong> Klicke bei „Datei 1“ auf „Datei auswählen“ und wähle das ZIP (oder die .fit-Datei). Das ZIP musst du nicht entpacken.</li>
         <li><strong>Zweite Datei.</strong> Dasselbe bei „Datei 2“. Weitere Aktivitäten fügst du mit „+ Datei“ hinzu (bis zu sechs).</li>
         <li><strong>Vergleichen.</strong> Die Kennzahlen stehen sofort nebeneinander. Mit der Wiedergabe lässt du beide Aktivitäten gleichzeitig über die Karte laufen, im Graphen ziehst du Abschnitte auf.</li>
@@ -168,6 +169,7 @@
           <tbody>
             <tr><td>ZIP aus „Datei exportieren“</td><td>Zahnrad → Datei exportieren</td><td>Wird direkt geladen. Volle Auswertung: Gerätewerte und berechnete Werte.</td></tr>
             <tr><td>FIT (ausgepackt)</td><td>aus dem ZIP</td><td>Wie das ZIP.</td></tr>
+            <tr><td>.fit.gz / .gpx.gz</td><td>z. B. Strava-Komplett-Export</td><td>Wird direkt geladen, auch aus einem ZIP heraus. Danach wie FIT bzw. GPX.</td></tr>
             <tr><td>GPX</td><td>Zahnrad → Als GPX-Datei exportieren</td><td>Funktioniert, aber ohne Gerätewerte, nur berechnete Werte. Herzfrequenz, Kadenz und Leistung erscheinen nur, wenn sie in der Datei stehen.</td></tr>
             <tr><td>TCX</td><td>Zahnrad → Als TCX-Datei exportieren</td><td>Wird nicht unterstützt. Nimm stattdessen „Datei exportieren“.</td></tr>
             <tr><td>Komplett-Export des Kontos</td><td>Garmin-Konto → Daten exportieren</td><td>Wird nicht direkt geladen (enthält viele Aktivitäten und weitere ZIPs). Entpacke das Archiv und lade die gewünschte .fit-Datei, oder exportiere die Aktivität einzeln.</td></tr>
@@ -175,6 +177,33 @@
         </table>
       </div>
       <p>Enthält ein ZIP mehrere Aktivitäten, bricht FITcomparer mit einer Fehlermeldung ab, statt zu raten.</p>
+    </section>
+
+    <section class="doc" id="andere-plattformen">
+      <h2>Dateien aus anderen Plattformen</h2>
+      <p>Garmin Connect ist hier nur das Beispiel, an dem die Anleitung erklärt wird. <strong>FIT ist ein offener Standard.</strong> Auch Uhren und Radcomputer von Wahoo, COROS, Suunto, Polar, Hammerhead und anderen schreiben FIT-Dateien mit derselben Struktur: eine Zusammenfassung der Aktivität und die Sekundenwerte. FITcomparer liest sie deshalb genauso, mit Gerätewerten und berechneten Werten.</p>
+      <p>Faustregel: Suche in der Plattform nach einem <strong>FIT-Export</strong> oder nach <strong>„Original exportieren“</strong>, denn das ist die unveränderte Datei deines Geräts. GPX geht ebenfalls, enthält aber keine Gerätewerte.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Plattform</th><th>So kommst du an die Datei</th><th>Hinweis</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Strava</td><td>Nur im Web: Aktivität öffnen, im „…“-Menü <strong>„Export Original“</strong> wählen. Alternativ <code>/export_original</code> an die Adresse der Aktivität hängen.</td><td>Meist FIT, genauso wie hochgeladen. „Export GPX“ liefert nur die Strecke. Im Komplett-Export liegen die Dateien oft als <code>.fit.gz</code>, die FITcomparer direkt lädt.</td></tr>
+            <tr><td>Wahoo</td><td>In der Wahoo-App das Workout öffnen, oben rechts auf Teilen tippen und <strong>„Share .fit file“</strong> wählen.</td><td>FIT</td></tr>
+            <tr><td>COROS</td><td>In der App die Aktivität öffnen und den Export als FIT wählen. Im Training Hub (Web) gibt es den Export mehrerer Aktivitäten.</td><td>Einzeln FIT, GPX, TCX oder KML. Der Sammel-Export liefert FIT oder TCX.</td></tr>
+            <tr><td>Suunto</td><td>In der Suunto-App das Workout öffnen, oben rechts auf die drei Punkte tippen und <strong>FIT</strong> wählen.</td><td>Ohne GPS-Daten gibt es keinen GPX-Export, FIT geht immer.</td></tr>
+            <tr><td>Polar Flow</td><td>Im Web im Tagebuch die Einheit öffnen, oben rechts im Menü <strong>„Exportieren“</strong> die FIT-Datei wählen.</td><td>Auch GPX, TCX und CSV. Für große Einheiten die ZIP-Variante wählen, FITcomparer entpackt sie.</td></tr>
+            <tr><td>Hammerhead Karoo</td><td>Im Dashboard unter „Rides“ auf die drei Punkte der Fahrt klicken und <strong>„Download FIT“</strong> wählen. Oder die Datei im Ordner „FitFiles“ des Geräts per Kabel kopieren.</td><td>FIT</td></tr>
+            <tr><td>Zwift</td><td>Auf zwift.com in der Aktivität die FIT-Datei herunterladen. Lokal liegen sie unter <code>Dokumente\Zwift\Activities</code>.</td><td>FIT</td></tr>
+            <tr><td>Apple Watch</td><td>Apple bietet keinen eigenen Export. Eine Zusatz-App wie HealthFit wandelt Workouts in FIT-Dateien um.</td><td>Die Daten kommen aus Apple Health, nicht von einem Sportgerät, Gerätewerte können deshalb abweichen.</td></tr>
+            <tr><td>Komoot und ähnliche</td><td>Meist nur ein GPX-Export.</td><td>Nur berechnete Werte, ohne Gerätewerte.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <p><strong>Stand der Angaben:</strong> Die Menünamen stammen aus den Hilfeseiten der Anbieter, ich habe sie nicht in jeder Plattform selbst durchgeklickt. Sie ändern sich gelegentlich. Mit „Gerätewerte“ meint FITcomparer die Zusammenfassung, die das Gerät in die Datei schreibt. Ob die Plattform dieselben Zahlen anzeigt, hängt von ihr ab. Garmin Connect ist die Referenz, mit der geprüft wurde.</p>
+      </div>
     </section>
 
     <section class="doc" id="bedienung">
@@ -302,7 +331,7 @@
       <p>Eine FIT-Datei enthält zwei verschiedene Dinge:</p>
       <ul>
         <li>die <strong>Sekundenwerte</strong> („Records“): Position, Höhe, Puls, Leistung und mehr, einmal pro Sekunde.</li>
-        <li>eine <strong>Zusammenfassung</strong> („Session“): Summen und Durchschnitte, die dein Gerät am Ende der Aktivität selbst ausgerechnet hat. Garmin Connect zeigt diese Zahlen an.</li>
+        <li>eine <strong>Zusammenfassung</strong> („Session“): Summen und Durchschnitte, die dein Gerät am Ende der Aktivität selbst ausgerechnet hat. Garmin Connect und die Apps anderer Hersteller zeigen diese Zahlen an.</li>
       </ul>
       <p>FITcomparer zeigt beides getrennt. Die <strong>Gerätewerte</strong> sind die Zusammenfassung und stimmen mit Garmin Connect überein. Die <strong>berechneten Werte</strong> stammen aus den Sekundenwerten. Nur sie sind für beliebige Abschnitte möglich, denn für ein Zeit- oder Distanzfenster gibt es keine Zusammenfassung des Geräts. Deshalb stimmt die berechnete Tabelle bewusst nicht in jeder Zeile auf die Nachkommastelle.</p>
 
@@ -355,7 +384,7 @@
       <h2>Häufige Fragen und Fehlerbehebung</h2>
       <dl class="faq">
         <dt>Die Datei wird nicht geladen.</dt>
-        <dd>FITcomparer liest FIT, GPX und ZIP mit genau einer Aktivität. TCX wird nicht unterstützt. Bei einer Fehlermeldung unter der Dateikarte steht, woran es liegt.</dd>
+        <dd>FITcomparer liest FIT, GPX (auch als .gz) und ZIP mit genau einer Aktivität. TCX wird nicht unterstützt. Bei einer Fehlermeldung unter der Dateikarte steht, woran es liegt.</dd>
 
         <dt>Es erscheint „Das ZIP enthält mehrere Aktivitäten“ oder „Komplett-Export“.</dt>
         <dd>Exportiere die Aktivität einzeln über das Zahnrad → „Datei exportieren“, oder entpacke das Archiv und wähle die gewünschte .fit-Datei.</dd>

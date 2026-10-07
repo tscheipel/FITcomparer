@@ -15,7 +15,7 @@ export const HELP = {
   file: {
     title: 'Dateien laden und benennen',
     body: [
-      'Wähle eine FIT-Datei, eine GPX-Datei oder direkt das ZIP aus Garmin Connect (Zahnrad → „Datei exportieren"). Die Datei wird nur in deinem Browser verarbeitet.',
+      'Wähle eine FIT-Datei, eine GPX-Datei oder direkt das ZIP aus Garmin Connect (Zahnrad → „Datei exportieren"). FIT-Dateien von Wahoo, COROS, Suunto, Polar, Strava und anderen funktionieren genauso, auch als .gz. Die Datei wird nur in deinem Browser verarbeitet.',
       'Den Namen kannst du frei ändern, zum Beispiel in „Tobi 2025". Er erscheint überall: in den Tabellen, im Graphen, in der Kartenlegende und im exportierten Video.',
       'Der Farbpunkt legt die Farbe der Aktivität fest, mit × entfernst du die Datei wieder.',
     ],
@@ -44,7 +44,7 @@ export const HELP = {
   deviceValues: {
     title: 'Gerätewerte',
     body: [
-      'Diese Zahlen hat deine Uhr oder dein Radcomputer am Ende der Aktivität selbst in die Datei geschrieben. Sie entsprechen genau dem, was Garmin Connect anzeigt.',
+      'Diese Zahlen hat deine Uhr oder dein Radcomputer am Ende der Aktivität selbst in die Datei geschrieben. Sie entsprechen dem, was Garmin Connect oder die App deines Geräts anzeigt.',
       'Enthält eine Datei keine solchen Werte (zum Beispiel bei GPX), bleibt ihre Spalte leer.',
     ],
   },

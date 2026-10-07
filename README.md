@@ -1,6 +1,6 @@
 # FITcomparer
 
-Vergleiche Aktivitäten von Garmin (FIT, GPX oder das ZIP aus Garmin Connect) direkt nebeneinander: Kennzahlen, Karte, Graph und auf Wunsch als MP4-Video. Alles läuft in deinem Browser, deine Dateien werden nicht hochgeladen.
+Vergleiche Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar, Strava und anderen (FIT, GPX oder das ZIP aus Garmin Connect) direkt nebeneinander: Kennzahlen, Karte, Graph und auf Wunsch als MP4-Video. Alles läuft in deinem Browser, deine Dateien werden nicht hochgeladen.
 
 **App: <https://fit.scheipel.com>** · **Anleitung: <https://fit.scheipel.com/help.html>**
 
@@ -22,6 +22,8 @@ Vergleiche Aktivitäten von Garmin (FIT, GPX oder das ZIP aus Garmin Connect) di
 2. FITcomparer öffnen und das ZIP bei „Datei 1“ auswählen. Es muss nicht entpackt werden. Dasselbe bei „Datei 2“.
 3. Vergleichen.
 
+FIT ist ein offener Standard: Dateien von Wahoo, COROS, Suunto, Polar, Hammerhead, Zwift oder der Strava-Funktion „Export Original“ lassen sich genauso laden, auch als `.fit.gz`. Die Menüwege je Plattform stehen in der Anleitung.
+
 Die ausführliche Anleitung mit Screenshots steht unter **[help.html](https://fit.scheipel.com/help.html)**.
 
 ## Lokal starten
@@ -36,7 +38,7 @@ und öffne <http://localhost:8000>.
 
 ## Grenzen
 
-- Unterstützt werden FIT, GPX und ZIP mit genau einer Aktivität. TCX wird nicht gelesen, der Komplett-Export eines Garmin-Kontos wird nicht direkt geladen.
+- Unterstützt werden FIT, GPX (auch als `.gz`) und ZIP mit genau einer Aktivität. TCX wird nicht gelesen, der Komplett-Export eines Garmin-Kontos wird nicht direkt geladen.
 - Der MP4-Export braucht einen Browser mit WebCodecs (aktuelles Chrome, Edge oder Firefox) und eine Datei mit GPS-Daten.
 - Karten, Bibliotheken und Schriften kommen aus dem Internet (siehe „Datenschutz“ in der Anleitung).
 

@@ -6,8 +6,8 @@
  */
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
-import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { initTooltips } from './tooltips.js?v=6';
+import { gunzipSync, unzipSync } from 'https://esm.sh/fflate@0.8.2';
+import { initTooltips } from './tooltips.js?v=7';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -21,7 +21,7 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=6';
+} from './video-export.js?v=7';
 
 const METRICS = [
   { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },
@@ -1165,13 +1165,20 @@ function readFileWithProgress(file, slot) {
 async function parseFitnessFile(buffer, file) {
   // Erkannt wird am Inhalt, nicht an der Endung: Browser und Umbenennen lassen
   // beides auseinanderlaufen.
+  let name = file.name;
+  let bytes = new Uint8Array(buffer);
+
   if (isZipBuffer(buffer)) {
-    const { name, data } = extractActivityFromZip(buffer);
-    const exact = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    return parseActivityBuffer(exact, name);
+    ({ name, data: bytes } = extractActivityFromZip(buffer));
   }
 
-  return parseActivityBuffer(buffer, file.name);
+  // Strava legt im Komplett-Export viele Dateien als .fit.gz / .gpx.gz ab.
+  if (isGzipBytes(bytes)) {
+    ({ name, data: bytes } = gunzipActivity(bytes, name));
+  }
+
+  const exact = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  return parseActivityBuffer(exact, name);
 }
 
 function parseActivityBuffer(buffer, fileName) {
@@ -1185,7 +1192,19 @@ function parseActivityBuffer(buffer, fileName) {
     return parseFit(buffer, fileName);
   }
 
-  throw new Error('Nur FIT, GPX und ZIP mit einer Aktivität werden unterstützt.');
+  throw new Error('Nur FIT, GPX (auch als .gz) und ZIP mit einer Aktivität werden unterstützt.');
+}
+
+function isGzipBytes(bytes) {
+  return bytes.byteLength > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+}
+
+function gunzipActivity(bytes, name) {
+  try {
+    return { name: name.replace(/\.gz$/i, ''), data: gunzipSync(bytes) };
+  } catch (error) {
+    throw new Error(`Die komprimierte Datei (.gz) konnte nicht entpackt werden: ${error.message}`);
+  }
 }
 
 function isZipBuffer(buffer) {
@@ -1197,8 +1216,8 @@ function isZipBuffer(buffer) {
   return a === 0x50 && b === 0x4b && c === 0x03 && d === 0x04;
 }
 
-// Unterstuetzt wird das Garmin-"Original exportieren"-ZIP mit genau einer
-// Aktivitaetsdatei. Der filter sorgt dafuer, dass nur diese eine dekomprimiert
+// Unterstuetzt wird das Garmin-"Datei exportieren"-ZIP mit genau einer
+// Aktivitaetsdatei (auch .fit.gz / .gpx.gz darin). Der filter sorgt dafuer, dass nur diese eine dekomprimiert
 // wird und nicht der ganze Archivinhalt.
 function extractActivityFromZip(buffer) {
   const seenNames = [];
@@ -1208,7 +1227,7 @@ function extractActivityFromZip(buffer) {
       filter: (entry) => {
         seenNames.push(entry.name);
         const isMacJunk = /(^|\/)(__MACOSX\/|\._)/.test(entry.name);
-        return !isMacJunk && /\.(fit|gpx)$/i.test(entry.name);
+        return !isMacJunk && /\.(fit|gpx)(\.gz)?$/i.test(entry.name);
       },
     });
   } catch (error) {
@@ -1218,13 +1237,13 @@ function extractActivityFromZip(buffer) {
   const names = Object.keys(entries);
   if (!names.length) {
     if (seenNames.some((name) => /\.zip$/i.test(name))) {
-      throw new Error('Das ZIP enthält weitere ZIP-Archive und sieht nach dem Komplett-Export aus. Bitte eine einzelne Aktivität über „Original exportieren“ laden oder die .fit-Datei entpacken.');
+      throw new Error('Das ZIP enthält weitere ZIP-Archive und sieht nach dem Komplett-Export aus. Bitte eine einzelne Aktivität exportieren (bei Garmin: „Datei exportieren“) oder die gewünschte .fit-Datei entpacken.');
     }
-    throw new Error('Im ZIP wurde keine .fit- oder .gpx-Datei gefunden.');
+    throw new Error('Im ZIP wurde keine .fit- oder .gpx-Datei (auch .gz) gefunden.');
   }
 
   if (names.length > 1) {
-    throw new Error(`Das ZIP enthält ${names.length} Aktivitäten. Bitte eine einzelne Aktivität über „Original exportieren“ laden oder die gewünschte Datei entpacken.`);
+    throw new Error(`Das ZIP enthält ${names.length} Aktivitäten. Bitte eine einzelne Aktivität exportieren (bei Garmin: „Datei exportieren“) oder die gewünschte Datei entpacken.`);
   }
 
   const [entryName] = names;
