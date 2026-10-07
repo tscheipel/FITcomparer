@@ -1192,6 +1192,31 @@ summary.comparison-subhead::marker {
   background: linear-gradient(to top, #0c1524 78%, rgba(12, 21, 36, 0));
 }
 
+/* Auf dem Handy muessen Metrik und zwei Datei-Spalten nebeneinander passen: kleinere Schrift
+   und Abstaende, Beschriftungen duerfen umbrechen. Breitere Tabellen scrollen weiter seitlich. */
+@media (max-width: 720px) {
+  .comparison-table {
+    font-size: 0.8rem;
+  }
+
+  .comparison-table th,
+  .comparison-table td {
+    padding: 5px 6px;
+  }
+
+  .comparison-table th[scope="row"] {
+    white-space: normal;
+    min-width: 92px;
+    max-width: 118px;
+    line-height: 1.25;
+  }
+
+  .comparison-delta {
+    margin-left: 4px;
+    padding: 1px 4px;
+  }
+}
+
 /* Muss hinter den Grundregeln des Dialogs stehen, sonst werden sie ueberschrieben. */
 @media (max-width: 720px) {
   .video-dialog {
@@ -1206,5 +1231,256 @@ summary.comparison-subhead::marker {
 
   .video-preview {
     max-height: 38vh;
+  }
+}
+
+/* ------------------------------ Hilfe-Symbole (?) ------------------------------ */
+
+.kicker-row,
+.label-row,
+.title-row,
+.section-actions,
+.add-file-row,
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kicker-row {
+  margin: 0 0 6px;
+}
+
+.kicker-row .card-kicker {
+  margin: 0;
+}
+
+.label-row {
+  margin-bottom: 8px;
+}
+
+/* Spezifischer als .control-group label und .slot-offset label, damit der Abstand nicht doppelt anfaellt. */
+.control-group .label-row label {
+  margin-bottom: 0;
+}
+
+.title-row {
+  margin-top: 2px;
+}
+
+.title-row .comparison-title {
+  margin: 0;
+}
+
+.section-actions {
+  gap: 8px;
+}
+
+.add-file-row {
+  gap: 8px;
+  justify-self: start;
+}
+
+.help {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid rgba(159, 177, 201, 0.7);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: 700 11px/1 "Sora", system-ui, sans-serif;
+  vertical-align: middle;
+  cursor: help;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+/* Groessere Trefferflaeche fuer Finger, ohne dass das Symbol selbst wachsen muss. */
+.help::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+
+.help:hover,
+.help:focus-visible,
+.help.is-open {
+  color: var(--accent-a);
+  border-color: var(--accent-a);
+  background: rgba(77, 225, 193, 0.12);
+  transform: none;
+}
+
+.help:focus-visible {
+  outline: 2px solid var(--accent-a);
+  outline-offset: 2px;
+}
+
+.help-tip {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 340px;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: visible;
+  background: #0f1a2b;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  font: 400 0.86rem/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  pointer-events: none;
+}
+
+/* Ohne Popover-API (aeltere Browser) wird der Kasten per Klasse ein- und ausgeblendet. */
+.help-tip.no-popover:not(.fallback-open) {
+  display: none;
+}
+
+.help-tip.no-popover {
+  z-index: 3000;
+}
+
+.help-tip-title {
+  display: block;
+  margin-bottom: 6px;
+  color: #fff;
+  font: 600 0.92rem "Sora", system-ui, sans-serif;
+}
+
+.help-tip p {
+  margin: 0 0 6px;
+}
+
+.help-tip p:last-child {
+  margin-bottom: 0;
+}
+
+/* Pfeil zum Button; --arrow-x setzt tooltips.js, auch wenn der Kasten am Rand klebt. */
+.help-tip::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: var(--arrow-x, 50%);
+  width: 10px;
+  height: 10px;
+  background: #0f1a2b;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.help-tip.above::before {
+  top: auto;
+  bottom: -6px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* ------------------------------ Kopfleiste und Fusszeile ------------------------------ */
+
+.topbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1440px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 16px 4px 0;
+}
+
+.brand {
+  color: var(--text);
+  font: 700 1.05rem "Sora", system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.topbar-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.topbar-help:hover,
+.topbar-help:focus-visible {
+  color: var(--text);
+  border-color: rgba(77, 225, 193, 0.55);
+}
+
+.help-glyph {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font: 700 11px/1 "Sora", system-ui, sans-serif;
+}
+
+.site-footer {
+  position: relative;
+  z-index: 1;
+  width: min(1440px, calc(100vw - 32px));
+  margin: 8px auto 0;
+  padding: 22px 0 36px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.8;
+  text-align: center;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.site-footer a:hover,
+.site-footer a:focus-visible {
+  border-bottom-color: var(--accent-a);
+}
+
+.site-footer-main {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.site-footer-credits {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  opacity: 0.9;
+}
+
+/* Muss hinter den Grundregeln stehen, sonst werden diese Ueberschreibungen ignoriert. */
+@media (max-width: 720px) {
+  .add-file-row {
+    justify-self: stretch;
+  }
+
+  .add-file-row .add-file {
+    flex: 1 1 auto;
   }
 }

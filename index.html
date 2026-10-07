@@ -9,7 +9,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fitness File Compare</title>
+  <title>FITcomparer</title>
+  <meta name="description" content="FITcomparer vergleicht FIT- und GPX-Aktivitäten von Garmin nebeneinander: Kennzahlen, Karte, Graph und MP4-Export. Alles im Browser.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -20,17 +21,28 @@
   <div class="backdrop backdrop-a"></div>
   <div class="backdrop backdrop-b"></div>
 
+  <header class="topbar">
+    <a class="brand" href="./">FITcomparer</a>
+    <a class="topbar-help" href="./help.html"><span class="help-glyph" aria-hidden="true">?</span> Hilfe</a>
+  </header>
+
   <main class="app-shell">
     <section class="panel files-card">
       <div class="file-grid" id="fileCards"></div>
-      <button class="secondary-button add-file" id="addFile" type="button">+ Datei</button>
+      <div class="add-file-row">
+        <button class="secondary-button add-file" id="addFile" type="button">+ Datei</button>
+        <button type="button" class="help" data-help="addFile">?</button>
+      </div>
     </section>
 
     <template id="fileCardTemplate">
       <div class="card">
         <div class="card-header">
           <div>
-            <p class="card-kicker" data-role="kicker">Datei</p>
+            <div class="kicker-row">
+              <p class="card-kicker" data-role="kicker">Datei</p>
+              <button type="button" class="help" data-help="file">?</button>
+            </div>
             <input class="track-name hidden" data-role="name" type="text">
           </div>
           <div class="card-header-actions">
@@ -49,7 +61,10 @@
           <div class="file-progress-meta"><span data-role="progressLabel">Bereit</span><span data-role="progressValue">0 %</span></div>
         </div>
         <div class="control-group slot-offset hidden" data-role="offsetGroup">
-          <label data-role="offsetLabel">Start-Offset</label>
+          <div class="label-row">
+            <label data-role="offsetLabel">Start-Offset</label>
+            <button type="button" class="help" data-help="offset">?</button>
+          </div>
           <div class="inline-control">
             <input type="range" data-role="offsetRange" min="-600" max="600" step="1" value="0">
             <input type="text" class="offset-text" data-role="offsetText" value="00:00" inputmode="text" autocomplete="off" spellcheck="false">
@@ -83,15 +98,18 @@
       <summary class="comparison-summary">
         <span class="comparison-heading">
           <span class="card-kicker">Vergleich</span>
-          <h3 class="comparison-title">Gesamte Aktivität</h3>
+          <span class="title-row">
+            <h3 class="comparison-title">Gesamte Aktivität</h3>
+            <button type="button" class="help" data-help="compare">?</button>
+          </span>
         </span>
       </summary>
       <div class="comparison-block" id="deviceComparison">
-        <p class="comparison-subhead">Gerätewerte aus der Datei <span class="comparison-note">entspricht Garmin Connect</span></p>
+        <p class="comparison-subhead">Gerätewerte aus der Datei <button type="button" class="help" data-help="deviceValues">?</button> <span class="comparison-note">entspricht Garmin Connect</span></p>
         <div class="comparison-scroll" id="deviceComparisonValues"></div>
       </div>
       <details class="comparison-block" id="computedComparison" open>
-        <summary class="comparison-subhead">Berechnet aus den Messpunkten <span class="comparison-note">gleiche Rechnung wie Zeit- und Distanzfenster</span></summary>
+        <summary class="comparison-subhead">Berechnet aus den Messpunkten <button type="button" class="help" data-help="computedValues">?</button> <span class="comparison-note">gleiche Rechnung wie Zeit- und Distanzfenster</span></summary>
         <div class="comparison-scroll" id="computedComparisonValues"></div>
       </details>
     </details>
@@ -99,7 +117,10 @@
     <section class="panel controls-card">
       <div class="control-row">
         <div class="control-group">
-          <label>Playback</label>
+          <div class="label-row">
+            <label>Playback</label>
+            <button type="button" class="help" data-help="playback">?</button>
+          </div>
           <div class="playback-controls">
             <button class="secondary-button skip-button" id="skipBack60" type="button" aria-label="Eine Minute zurück" title="Eine Minute zurück">− 1 min</button>
             <button class="secondary-button skip-button" id="skipBack10" type="button" aria-label="Zehn Sekunden zurück" title="Zehn Sekunden zurück">− 10 s</button>
@@ -135,10 +156,14 @@
 
     <section class="panel map-card">
       <div class="section-header">
-        <div>
+        <div class="kicker-row">
           <p class="card-kicker">Karte</p>
+          <button type="button" class="help" data-help="map">?</button>
         </div>
-        <button class="secondary-button" id="exportVideo" type="button">Als MP4 speichern</button>
+        <div class="section-actions">
+          <button class="secondary-button" id="exportVideo" type="button">Als MP4 speichern</button>
+          <button type="button" class="help" data-help="exportVideo">?</button>
+        </div>
       </div>
       <div class="map-frame" id="mapFrame">
         <div id="map"></div>
@@ -149,8 +174,9 @@
 
     <section class="panel chart-card">
       <div class="section-header">
-        <div>
+        <div class="kicker-row">
           <p class="card-kicker">Graph</p>
+          <button type="button" class="help" data-help="graph">?</button>
         </div>
         <div class="metric-switcher" id="metricSwitcher"></div>
       </div>
@@ -161,7 +187,10 @@
         <article class="inspector-card">
           <div class="inspector-head">
             <div>
-              <p class="card-kicker">Aktueller Punkt</p>
+              <div class="kicker-row">
+                <p class="card-kicker">Aktueller Punkt</p>
+                <button type="button" class="help" data-help="currentPoint">?</button>
+              </div>
               <h3 id="currentPointTime">0:00</h3>
             </div>
             <span class="inspector-hint">Playhead</span>
@@ -172,7 +201,10 @@
         <article class="inspector-card">
           <div class="inspector-head">
             <div>
-              <p class="card-kicker">Hover</p>
+              <div class="kicker-row">
+                <p class="card-kicker">Hover</p>
+                <button type="button" class="help" data-help="hover">?</button>
+              </div>
               <h3 id="hoverPointTime">-</h3>
             </div>
             <span class="inspector-hint">Mausposition</span>
@@ -183,7 +215,10 @@
         <article class="inspector-card selection-card hidden" id="selectionPanel">
           <div class="inspector-head">
             <div>
-              <p class="card-kicker">Zeitfenster</p>
+              <div class="kicker-row">
+                <p class="card-kicker">Zeitfenster</p>
+                <button type="button" class="help" data-help="timeWindow">?</button>
+              </div>
               <h3 id="selectionRange">-</h3>
             </div>
             <button class="selection-close" id="selectionClose" type="button" aria-label="Fenster schließen">×</button>
@@ -202,7 +237,10 @@
         <article class="inspector-card selection-card hidden" id="distanceSelectionPanel">
           <div class="inspector-head">
             <div>
-              <p class="card-kicker">Distanzfenster</p>
+              <div class="kicker-row">
+                <p class="card-kicker">Distanzfenster</p>
+                <button type="button" class="help" data-help="distanceWindow">?</button>
+              </div>
               <h3 id="distanceSelectionRange">Startpunkt auf der Karte wählen</h3>
             </div>
             <button class="selection-close" id="distanceSelectionClose" type="button" aria-label="Distanzfenster schließen">×</button>
@@ -217,27 +255,44 @@
 
   </main>
 
+  <footer class="site-footer">
+    <p class="site-footer-main">© 2026 Tobias Scheipel · <a href="https://scheipel.com" rel="noopener">scheipel.com</a></p>
+    <p class="site-footer-links">
+      <a href="./help.html">Anleitung</a> ·
+      <a href="https://github.com/tscheipel/FITcomparer" rel="noopener">GitHub</a> ·
+      <a href="https://github.com/tscheipel/FITcomparer/blob/main/LICENSE" rel="noopener">MIT-Lizenz</a>
+    </p>
+    <p class="site-footer-credits">
+      Kartendaten © <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap-Mitwirkende</a> ·
+      <a href="https://leafletjs.com" rel="noopener">Leaflet</a> ·
+      <a href="https://www.chartjs.org" rel="noopener">Chart.js</a> ·
+      <a href="https://github.com/jimmykane/fit-parser" rel="noopener">fit-file-parser</a> ·
+      <a href="https://101arrowz.github.io/fflate" rel="noopener">fflate</a> ·
+      <a href="https://github.com/Vanilagy/mp4-muxer" rel="noopener">mp4-muxer</a>
+    </p>
+  </footer>
+
   <dialog class="video-dialog" id="videoDialog">
     <form id="videoForm" method="dialog">
       <h3 class="video-dialog-title">Aktivität als MP4 speichern</h3>
       <p class="video-dialog-note">Zeigt die Karte mit allen geladenen Dateien und ihren wandernden Positionsmarkern über die gesamte Aktivität. Gerendert wird im Browser; hochgeladen wird nichts, nur die Kartenkacheln werden einmal geladen.</p>
 
       <label class="video-field">
-        <span>Geschwindigkeit</span>
-        <select id="videoSpeed"></select>
+        <span class="field-label">Geschwindigkeit <button type="button" class="help" data-help="videoSpeed">?</button></span>
+        <select id="videoSpeed" autofocus></select>
       </label>
       <label class="video-field">
-        <span>Format</span>
+        <span class="field-label">Format <button type="button" class="help" data-help="videoFormat">?</button></span>
         <select id="videoAspect"></select>
       </label>
       <label class="video-field">
-        <span>Auflösung</span>
+        <span class="field-label">Auflösung <button type="button" class="help" data-help="videoQuality">?</button></span>
         <select id="videoQuality"></select>
       </label>
 
       <div class="video-crop">
         <div class="video-crop-head">
-          <span>Ausschnitt</span>
+          <span class="field-label">Ausschnitt <button type="button" class="help" data-help="videoCrop">?</button></span>
           <span class="video-crop-hint">Ziehen verschiebt, Mausrad, Regler oder zwei Finger zoomen.</span>
         </div>
         <canvas class="video-preview" id="videoPreview" width="640" height="360" aria-label="Vorschau des Kartenausschnitts"></canvas>

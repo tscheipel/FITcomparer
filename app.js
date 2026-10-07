@@ -7,6 +7,7 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
+import { initTooltips } from './tooltips.js';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -240,6 +241,7 @@ const distanceInteraction = {
 init();
 
 function init() {
+  initTooltips();
   createMetricButtons();
   initMap();
   initChart();
