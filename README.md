@@ -11,6 +11,7 @@ Vergleiche Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar, Strava und ande
 - **Zwei bis sechs Aktivitäten** gleichzeitig vergleichen, jede mit eigenem Namen und eigener Farbe.
 - **Gerätewerte wie in Garmin Connect** (aus der Zusammenfassung der FIT-Datei) und daneben **nachgerechnete Werte** aus den Sekundenwerten, inklusive Abweichungsanzeige.
 - **Zeit- und Distanzfenster:** Kennzahlen für einen beliebigen Abschnitt, auch wenn die Aktivitäten ihn zu verschiedenen Zeiten gefahren sind.
+- **Dateien per Drag & Drop** auf die Dateikarte ziehen oder über „Datei auswählen“ laden.
 - **Start-Offset**, um ungleiche Startzeiten bei Rennen oder gemeinsamen Ausfahrten auszugleichen.
 - **Wiedergabe** mit wandernden Markern auf der Karte, Graph für Puls, Leistung, Geschwindigkeit, Distanz, Kadenz und Höhe.
 - **MP4-Export** in 16:9, 4:3, 1:1, 4:5 und 9:16 mit frei wählbarem Kartenausschnitt.

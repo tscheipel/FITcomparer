@@ -7,7 +7,7 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { gunzipSync, unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { initTooltips } from './tooltips.js?v=8';
+import { initTooltips } from './tooltips.js?v=12';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -21,7 +21,7 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=8';
+} from './video-export.js?v=12';
 
 const METRICS = [
   { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },
@@ -402,6 +402,7 @@ function buildSlotCard(slot) {
 
 function bindSlotEvents(slot) {
   slot.el.file.addEventListener('change', () => handleFileSelection(slot));
+  bindFileDrop(slot);
   slot.el.remove.addEventListener('click', () => removeSlot(slot));
   slot.el.color.addEventListener('input', () => applySlotColor(slot, slot.el.color.value));
   bindTrackNameEditor(slot);
@@ -1076,6 +1077,47 @@ function initChart() {
   elements.chart.addEventListener('pointermove', handleChartPointerMove);
   elements.chart.addEventListener('pointerup', handleChartPointerUp);
   elements.chart.addEventListener('pointerleave', handleChartPointerLeave);
+}
+
+// Datei auf die Karte ziehen: dieselbe Verarbeitung wie "Datei auswaehlen".
+window.addEventListener('dragover', (event) => event.preventDefault());
+window.addEventListener('drop', (event) => event.preventDefault());
+
+function bindFileDrop(slot) {
+  const card = slot.el.card;
+  let depth = 0;
+  const hasFiles = (event) => Array.from(event.dataTransfer?.types ?? []).includes('Files');
+
+  card.addEventListener('dragenter', (event) => {
+    if (hasFiles(event)) {
+      depth += 1;
+      card.classList.add('is-dragover');
+    }
+  });
+  card.addEventListener('dragover', (event) => {
+    if (hasFiles(event)) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  });
+  card.addEventListener('dragleave', () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) {
+      card.classList.remove('is-dragover');
+    }
+  });
+  card.addEventListener('drop', (event) => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    depth = 0;
+    card.classList.remove('is-dragover');
+    if (event.dataTransfer.files.length) {
+      slot.el.file.files = event.dataTransfer.files;
+      handleFileSelection(slot);
+    }
+  });
 }
 
 async function handleFileSelection(slot) {
