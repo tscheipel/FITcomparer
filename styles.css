@@ -1521,6 +1521,43 @@ summary.comparison-subhead::marker {
   opacity: 0.9;
 }
 
+/* ------------------------------ Einleitungstext (auch fuer Suchmaschinen) ------------------------------ */
+
+.about-site {
+  position: relative;
+  z-index: 1;
+  width: min(1440px, calc(100vw - 32px));
+  margin: 8px auto 0;
+  padding: 8px 4px 16px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.about-site h1 {
+  max-width: none;
+  margin: 0 0 8px;
+  color: var(--text);
+  font: 600 1.05rem "Sora", system-ui, sans-serif;
+}
+
+.about-site p {
+  max-width: 90ch;
+  margin: 0 0 8px;
+}
+
+.about-site a {
+  color: var(--accent-a);
+}
+
+.noscript {
+  position: relative;
+  z-index: 1;
+  width: min(1440px, calc(100vw - 32px));
+  margin: 16px auto;
+  color: var(--text);
+}
+
 /* Muss hinter den Grundregeln stehen, sonst werden diese Ueberschreibungen ignoriert. */
 @media (max-width: 720px) {
   .add-file-row {
