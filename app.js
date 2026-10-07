@@ -7,7 +7,7 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { initTooltips } from './tooltips.js?v=3';
+import { initTooltips } from './tooltips.js?v=4';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -21,7 +21,7 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=3';
+} from './video-export.js?v=4';
 
 const METRICS = [
   { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },

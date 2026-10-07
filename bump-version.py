@@ -10,7 +10,7 @@ import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).parent
-PATTERN = re.compile(r"(\./[\w.-]+\.(?:css|js))\?v=(\d+)")
+PATTERN = re.compile(r"(\./[\w.-]+\.(?:css|js|svg|png))\?v=(\d+)")
 FILES = ['index.html', 'help.html', 'app.js']
 
 versions = [int(m.group(2)) for name in FILES for m in PATTERN.finditer((ROOT / name).read_text(encoding='utf-8'))]

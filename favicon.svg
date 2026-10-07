@@ -1,0 +1,11 @@
+<!--
+  FITcomparer
+  Copyright (c) 2026 Tobias Scheipel
+  SPDX-License-Identifier: MIT
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#07111d"/>
+  <path d="M11 49C24 49 21 23 32 31S41 17 53 15" fill="none" stroke="#9fb1c9" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="20.8" cy="40.4" r="7" fill="#4de1c1" stroke="#07111d" stroke-width="2"/>
+  <circle cx="47.3" cy="18.2" r="7" fill="#78a6ff" stroke="#07111d" stroke-width="2"/>
+</svg>
