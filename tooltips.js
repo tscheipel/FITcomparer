@@ -145,6 +145,8 @@ const EDGE = 12;
 let tip = null;
 let active = null;
 let pinned = false;
+let sheet = false;
+let lastPointerType = 'mouse';
 let showTimer = 0;
 let hideTimer = 0;
 
@@ -180,6 +182,16 @@ function fill(entry) {
     p.textContent = paragraph;
     element.appendChild(p);
   }
+
+  // Auf dem Handy gibt es keinen Mauszeiger und kein Hover: Das Blatt braucht einen eigenen Schliessen-Knopf.
+  if (sheet) {
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'help-tip-close';
+    closeButton.setAttribute('aria-label', 'Hilfe schließen');
+    closeButton.textContent = '×';
+    element.prepend(closeButton);
+  }
 }
 
 function place(button) {
@@ -203,7 +215,7 @@ function place(button) {
   element.classList.toggle('above', top < anchor.top);
 }
 
-function open(button) {
+function open(button, asSheet = false) {
   const entry = HELP[button.dataset.help];
   if (!entry) {
     return;
@@ -215,6 +227,8 @@ function open(button) {
     active.removeAttribute('aria-describedby');
   }
 
+  sheet = asSheet;
+  ensureTip().classList.toggle('sheet', sheet);
   fill(entry);
   active = button;
   button.setAttribute('aria-describedby', 'helpTip');
@@ -229,7 +243,14 @@ function open(button) {
     (button.closest('dialog') ?? document.body).appendChild(element);
     element.classList.add('fallback-open');
   }
-  place(button);
+  if (sheet) {
+    // Positionen einer frueheren Sprechblase wuerden das feste Blatt verschieben.
+    for (const name of ['left', 'top', 'max-width']) {
+      element.style.removeProperty(name);
+    }
+  } else {
+    place(button);
+  }
 }
 
 function close() {
@@ -275,6 +296,11 @@ export function initTooltips() {
 
   const helpButton = (target) => target?.closest?.('.help[data-help]') ?? null;
 
+  // Merkt sich, womit zuletzt gedrueckt wurde: Finger und Stift bekommen das Blatt unten, Maus und Tastatur die Sprechblase.
+  document.addEventListener('pointerdown', (event) => {
+    lastPointerType = event.pointerType || 'mouse';
+  }, true);
+
   document.addEventListener('pointerover', (event) => {
     const button = helpButton(event.target);
     if (!button || event.pointerType !== 'mouse' || pinned) {
@@ -311,6 +337,12 @@ export function initTooltips() {
   });
 
   document.addEventListener('click', (event) => {
+    if (event.target.closest?.('.help-tip-close')) {
+      event.preventDefault();
+      close();
+      return;
+    }
+
     const button = helpButton(event.target);
     if (button) {
       // Der Button darf weder ein <summary> ein-/ausklappen noch ein Label ausloesen.
@@ -319,7 +351,7 @@ export function initTooltips() {
       if (pinned && active === button) {
         close();
       } else {
-        open(button);
+        open(button, lastPointerType === 'touch' || lastPointerType === 'pen');
         pinned = true;
         button.classList.add('is-open');
       }
@@ -339,6 +371,8 @@ export function initTooltips() {
   });
 
   // Die Position stimmt nach Scrollen oder Groessenaenderung nicht mehr.
-  window.addEventListener('scroll', () => active && close(), true);
-  window.addEventListener('resize', () => active && close());
+  // Das Blatt am Handy sitzt fest am Bildschirmrand: Scrollen und das Ein-/Ausblenden der Adressleiste
+  // (loest resize aus) duerfen es nicht schliessen.
+  window.addEventListener('scroll', () => active && !sheet && close(), true);
+  window.addEventListener('resize', () => active && !sheet && close());
 }

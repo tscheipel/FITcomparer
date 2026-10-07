@@ -1286,19 +1286,35 @@ summary.comparison-subhead::marker {
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
+  align-self: center;
+  box-sizing: border-box;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  aspect-ratio: 1;
   margin: 0;
   padding: 0;
   border: 1.5px solid rgba(159, 177, 201, 0.7);
   border-radius: 50%;
   background: transparent;
   color: var(--muted);
-  font: 700 11px/1 "Sora", system-ui, sans-serif;
+  font: 700 12px/1 "Sora", system-ui, sans-serif;
   vertical-align: middle;
   cursor: help;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+@media (pointer: coarse) {
+  .help {
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+    min-height: 26px;
+    font-size: 13px;
+  }
 }
 
 /* Groessere Trefferflaeche fuer Finger, ohne dass das Symbol selbst wachsen muss. */
@@ -1338,6 +1354,37 @@ summary.comparison-subhead::marker {
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
   font: 400 0.86rem/1.5 "IBM Plex Sans", system-ui, sans-serif;
   pointer-events: none;
+}
+
+/* Handy: festes Blatt am unteren Rand statt Sprechblase, mit Schliessen-Knopf. */
+.help-tip.sheet {
+  inset: auto 12px max(12px, env(safe-area-inset-bottom)) 12px;
+  width: auto;
+  max-width: none !important;
+  max-height: 60vh;
+  padding: 16px 52px 16px 16px;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  pointer-events: auto;
+}
+
+.help-tip.sheet::before {
+  display: none;
+}
+
+.help-tip-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1;
 }
 
 /* Ohne Popover-API (aeltere Browser) wird der Kasten per Klasse ein- und ausgeblendet. */
