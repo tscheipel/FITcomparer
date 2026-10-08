@@ -5,18 +5,23 @@
   SPDX-License-Identifier: MIT
   See the LICENSE file in the project root for the full license text.
 -->
-<html lang="de">
+<html lang="de-AT">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--lang:head-->
   <title>FITcomparer – Anleitung: Aktivitäten aus Garmin Connect exportieren und vergleichen</title>
   <meta name="description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="author" content="Tobias Scheipel">
   <link rel="canonical" href="https://fit.scheipel.com/help.html">
+  <link rel="alternate" hreflang="de" href="https://fit.scheipel.com/help.html">
+  <link rel="alternate" hreflang="en" href="https://fit.scheipel.com/en/help.html">
+  <link rel="alternate" hreflang="x-default" href="https://fit.scheipel.com/help.html">
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="FITcomparer">
-  <meta property="og:locale" content="de_DE">
+  <meta property="og:locale" content="de_AT">
+  <meta property="og:locale:alternate" content="en_GB">
   <meta property="og:title" content="FITcomparer – Anleitung: Aktivitäten aus Garmin Connect exportieren und vergleichen">
   <meta property="og:description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
   <meta property="og:url" content="https://fit.scheipel.com/help.html">
@@ -28,13 +33,6 @@
   <meta name="twitter:title" content="FITcomparer – Anleitung: Aktivitäten aus Garmin Connect exportieren und vergleichen">
   <meta name="twitter:description" content="Anleitung zu FITcomparer: So exportierst du Aktivitäten aus Garmin Connect (Web) oder von Strava, Wahoo und COROS als FIT-Datei, vergleichst sie nebeneinander und speicherst den Vergleich als MP4-Video.">
   <meta name="twitter:image" content="https://fit.scheipel.com/og-image.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="icon" href="./favicon.svg?v=12" type="image/svg+xml">
-  <link rel="icon" href="./favicon-32.png?v=12" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=12">
-  <meta name="theme-color" content="#07111d">
   <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -72,8 +70,17 @@
   ]
 }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=12">
-  <link rel="stylesheet" href="./help.css?v=12">
+  <script src="./lang.js?v=14"></script>
+  <!--/lang:head-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="./favicon.svg?v=14" type="image/svg+xml">
+  <link rel="icon" href="./favicon-32.png?v=14" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=14">
+  <meta name="theme-color" content="#07111d">
+  <link rel="stylesheet" href="./styles.css?v=14">
+  <link rel="stylesheet" href="./help.css?v=14">
 </head>
 <body>
   <div class="backdrop backdrop-a"></div>
@@ -81,7 +88,15 @@
 
   <header class="topbar">
     <a class="brand" href="./">FITcomparer</a>
-    <a class="topbar-help" href="./">← Zur App</a>
+    <div class="topbar-right">
+      <!--lang:switch-->
+      <nav class="lang-switch" aria-label="Sprache">
+      <a class="lang-link is-active" href="./help.html" hreflang="de" lang="de" title="Deutsch" aria-label="Deutsch" aria-current="true"><svg viewBox="0 0 3 2" aria-hidden="true" focusable="false"><rect width="3" height="2" fill="#ed2939"/><rect y="0.667" width="3" height="0.667" fill="#fff"/></svg></a>
+      <a class="lang-link" href="./en/help.html" hreflang="en" lang="en" title="English" aria-label="English"><svg viewBox="0 0 60 30" aria-hidden="true" focusable="false"><clipPath id="gbA"><path d="M0,0v30h60v-30z"/></clipPath><clipPath id="gbB"><path d="M30,15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath><g clip-path="url(#gbA)"><path d="M0,0v30h60v-30z" fill="#012169"/><path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0L60,30M60,0L0,30" clip-path="url(#gbB)" stroke="#c8102e" stroke-width="4"/><path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/><path d="M30,0v30M0,15h60" stroke="#c8102e" stroke-width="6"/></g></svg></a>
+      </nav>
+      <!--/lang:switch-->
+      <a class="topbar-help" href="./">← Zur App</a>
+    </div>
   </header>
 
   <main class="help-page">
@@ -156,7 +171,7 @@
         <li>Lade dieses ZIP in FITcomparer. <strong>Es muss nicht entpackt werden.</strong> Für jede weitere Aktivität wiederholst du die Schritte.</li>
       </ol>
       <figure class="shot shot-medium">
-        <img src="./docs/img/garmin-export.webp" width="1488" height="990" loading="lazy" alt="Garmin Connect: Aktivität mit geöffnetem Zahnrad-Menü, markiert sind das Zahnrad und der Eintrag Datei exportieren">
+        <img src="./docs/img/garmin-export.webp" width="1466" height="1010" loading="lazy" alt="Garmin Connect: Aktivität mit geöffnetem Zahnrad-Menü, markiert sind das Zahnrad und der Eintrag Datei exportieren">
         <figcaption>Garmin Connect (Web): ① Zahnrad, ② „Datei exportieren“. Das Layout kann sich ändern, die Bezeichnung bleibt in der Regel gleich.</figcaption>
       </figure>
 

@@ -10,6 +10,8 @@
 // Alles laeuft im Browser; ueber das Netz geht nur das einmalige Laden der
 // OSM-Kacheln fuer den festen Kartenausschnitt.
 
+import { t } from './i18n.js?v=14';
+
 const TILE_SIZE = 256;
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 18;
@@ -20,17 +22,17 @@ const MAX_ENCODE_QUEUE = 8;
 // Bildformate. Aufgespannt wird immer ueber die kurze Seite: 720 heisst 1280x720 im
 // 16:9-Querformat, aber 720x1280 im 9:16-Hochformat.
 export const ASPECTS = [
-  { id: '16:9', w: 16, h: 9, label: '16:9 Querformat' },
-  { id: '4:3', w: 4, h: 3, label: '4:3 Querformat' },
-  { id: '1:1', w: 1, h: 1, label: '1:1 Quadrat' },
-  { id: '4:5', w: 4, h: 5, label: '4:5 Hochformat' },
-  { id: '9:16', w: 9, h: 16, label: '9:16 Hochformat (Story/Reel)' },
+  { id: '16:9', w: 16, h: 9, label: t('video.aspect.16:9') },
+  { id: '4:3', w: 4, h: 3, label: t('video.aspect.4:3') },
+  { id: '1:1', w: 1, h: 1, label: t('video.aspect.1:1') },
+  { id: '4:5', w: 4, h: 5, label: t('video.aspect.4:5') },
+  { id: '9:16', w: 9, h: 16, label: t('video.aspect.9:16') },
 ];
 
 export const QUALITIES = [
-  { id: '360', shortSide: 360, label: 'Vorschau' },
-  { id: '720', shortSide: 720, label: 'HD' },
-  { id: '1080', shortSide: 1080, label: 'Full HD' },
+  { id: '360', shortSide: 360, label: t('video.quality.360') },
+  { id: '720', shortSide: 720, label: t('video.quality.720') },
+  { id: '1080', shortSide: 1080, label: t('video.quality.1080') },
 ];
 
 const toEven = (value) => Math.max(2, Math.round(value / 2) * 2);
@@ -501,7 +503,7 @@ function drawLegend(ctx, tracks, width, height) {
 function drawAttribution(ctx, width, height) {
   const unit = Math.min(width, height) / 720;
   const fontSize = Math.round(11 * unit);
-  const text = '\u00a9 OpenStreetMap-Mitwirkende';
+  const text = t('map.attribution');
 
   ctx.save();
   ctx.font = `${fontSize}px "IBM Plex Sans", system-ui, sans-serif`;
@@ -703,18 +705,18 @@ function repairAvcMeta(chunk, meta) {
  */
 export async function exportVideo({ tracks, duration, speed, width, height, fps, view = AUTO_VIEW, onProgress, signal }) {
   if (!isVideoExportSupported()) {
-    throw new Error('Dieser Browser unterst\u00fctzt keinen Videoexport (WebCodecs). Bitte Chrome oder Edge verwenden.');
+    throw new Error(t('video.err.noWebCodecs'));
   }
 
   const drawable = tracks.filter((track) => track.mapSamples.length);
   const bounds = collectWorldBounds(drawable);
   if (!bounds) {
-    throw new Error('Keine Positionsdaten vorhanden \u2013 ohne GPS gibt es keine Karte zu exportieren.');
+    throw new Error(t('video.err.noPositions'));
   }
 
   const choice = await chooseEncoderConfig({ width, height, fps });
   if (!choice) {
-    throw new Error('Der Browser kann weder H.264 noch VP9 kodieren.');
+    throw new Error(t('video.err.noCodec'));
   }
 
   signal?.throwIfAborted();
@@ -727,7 +729,7 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
     loadMissing: true,
     signal,
     onTileProgress: (done, total) => {
-      onProgress?.({ phase: 'tiles', ratio: done / total, text: `Lade Kartenkacheln (${done}/${total}) \u2026` });
+      onProgress?.({ phase: 'tiles', ratio: done / total, text: t('video.progress.tiles', { done, total }) });
     },
   });
 
@@ -783,21 +785,21 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
 
       // Der Oberflaeche Luft lassen, damit Fortschritt und Abbrechen reagieren.
       if (index % 10 === 0) {
-        onProgress?.({ phase: 'render', ratio: index / frameCount, text: `Rendere Bild ${index + 1}/${frameCount} \u2026` });
+        onProgress?.({ phase: 'render', ratio: index / frameCount, text: t('video.progress.render', { index: index + 1, total: frameCount }) });
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
 
-    onProgress?.({ phase: 'finish', ratio: 1, text: 'Schlie\u00dfe die Datei ab \u2026' });
+    onProgress?.({ phase: 'finish', ratio: 1, text: t('video.progress.finish') });
     await encoder.flush();
     if (encoderError) {
       throw encoderError;
     }
     if (chunkCount === 0) {
-      throw new Error(`Der ${choice.label}-Encoder dieses Browsers hat kein einziges Bild geliefert.`);
+      throw new Error(t('video.err.noFrames', { codec: choice.label }));
     }
     if (chunkCount < frameCount * 0.9) {
-      throw new Error(`Der Encoder lieferte nur ${chunkCount} von ${frameCount} Bildern; die Datei w\u00e4re unvollst\u00e4ndig.`);
+      throw new Error(t('video.err.incomplete', { chunks: chunkCount, frames: frameCount }));
     }
     muxer.finalize();
   } finally {

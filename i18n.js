@@ -1,0 +1,238 @@
+/*
+ * FITcomparer
+ * Copyright (c) 2026 Tobias Scheipel
+ * SPDX-License-Identifier: MIT
+ * See the LICENSE file in the project root for the full license text.
+ */
+
+// Sprache der Seite: Die deutschen Seiten tragen <html lang="de-AT">, die englischen <html lang="en">.
+// Statischer Seitentext steht fertig uebersetzt in den HTML-Dateien (build-lang.py), hier liegen nur die
+// Texte, die das Skript zur Laufzeit erzeugt.
+export const LANG = (document.documentElement.lang || 'de').toLowerCase().startsWith('en') ? 'en' : 'de';
+export const LOCALE = LANG === 'en' ? 'en-GB' : 'de-AT';
+
+const DICT = {
+  de: {
+    'help.close': 'Hilfe schließen',
+    'help.label': 'Hilfe: {title}',
+
+    // Graph-Messwerte
+    'metric.hr': 'HR',
+    'metric.power': 'Power',
+    'metric.speed': 'Geschwindigkeit',
+    'metric.distance': 'Distanz',
+    'metric.cadence': 'Kadenz',
+    'metric.altitude': 'Höhe',
+
+    // Tabellenzeilen
+    'row.distance': 'Distanz',
+    'row.time': 'Zeit',
+    'row.elapsed': 'Verstrichene Zeit',
+    'row.stopped': 'Stehzeit',
+    'row.avgSpeed': 'Ø Geschwindigkeit',
+    'row.maxSpeed': 'Max. Geschwindigkeit',
+    'row.avgHr': 'Ø HF',
+    'row.maxHr': 'Max. HF',
+    'row.avgPower': 'Ø Power',
+    'row.maxPower': 'Max. Power',
+    'row.np': 'Normalized Power',
+    'row.avgCadence': 'Ø Kadenz',
+    'row.ascent': 'Anstieg',
+    'row.descent': 'Abstieg',
+    'row.minAlt': 'Min. Höhe',
+    'row.maxAlt': 'Max. Höhe',
+    'row.calories': 'Kalorien',
+    'row.work': 'Arbeit',
+    'row.tss': 'Training Stress Score',
+    'row.if': 'Intensity Factor',
+    'table.metric': 'Metrik',
+
+    // Dateikarten
+    'slot.file': 'Datei {n}',
+    'slot.remove': 'Datei entfernen',
+    'slot.minFiles': 'Mindestens {n} Dateien',
+    'slot.offset': 'Start-Offset {name}',
+    'file.reading': 'Lese Datei',
+    'file.dataLoaded': 'Daten geladen',
+    'file.loading': 'Lädt ...',
+    'file.readingMeta': '{name} wird gelesen ...',
+    'file.parsing': 'Analysiere Datei',
+    'file.processing': 'Verarbeite ...',
+    'file.parsingMeta': '{name} wird analysiert ...',
+    'file.done': 'Fertig',
+    'file.loaded': 'Geladen',
+    'file.error': 'Fehler',
+    'file.loadError': 'Datei konnte nicht geladen werden: {message}',
+    'file.readFailed': 'Datei konnte nicht gelesen werden.',
+    'summary.points': '{n} Punkte',
+    'summary.duration': 'Dauer: {value}',
+    'summary.distance': 'Distanz: {value}',
+
+    // Fehler beim Einlesen
+    'err.unsupported': 'Nur FIT, GPX (auch als .gz) und ZIP mit einer Aktivität werden unterstützt.',
+    'err.gzip': 'Die komprimierte Datei (.gz) konnte nicht entpackt werden: {message}',
+    'err.zip': 'ZIP konnte nicht entpackt werden: {message}',
+    'err.zipNested': 'Das ZIP enthält weitere ZIP-Archive und sieht nach dem Komplett-Export aus. Bitte eine einzelne Aktivität exportieren (bei Garmin: „Datei exportieren“) oder die gewünschte .fit-Datei entpacken.',
+    'err.zipEmpty': 'Im ZIP wurde keine .fit- oder .gpx-Datei (auch .gz) gefunden.',
+    'err.zipMany': 'Das ZIP enthält {n} Aktivitäten. Bitte eine einzelne Aktivität exportieren (bei Garmin: „Datei exportieren“) oder die gewünschte Datei entpacken.',
+    'err.gpxParse': 'GPX konnte nicht gelesen werden: {message}',
+    'err.invalidXml': 'ungültiges XML',
+    'err.noTrackpoints': 'In {name} wurden keine Trackpunkte gefunden.',
+    'err.noRecords': 'In {name} wurden keine FIT-Records gefunden.',
+    'err.noUsableRecords': 'In {name} wurden keine verwertbaren FIT-Records gefunden.',
+
+    // Graph und Inspektoren
+    'axis.time': 'Zeit',
+    'axis.value': 'Wert',
+    'inspector.hoverEmpty': 'Maus über den Graphen bewegen',
+    'inspector.noFile': 'Noch keine Datei geladen',
+    'distance.pickEnd': 'Start gesetzt – jetzt Endpunkt wählen',
+
+    // Video-Dialog
+    'video.reason.webcodecs': 'Der Videoexport braucht WebCodecs (aktuelles Chrome oder Edge).',
+    'video.reason.noGps': 'Zuerst eine Datei mit GPS-Daten laden.',
+    'video.close': 'Schließen',
+    'video.cancel': 'Abbrechen',
+    'video.estimate': 'Video: {duration} · {frames} Bilder · bis ca. {size}',
+    'video.tooBig': ' – zu groß für den Arbeitsspeicher, bitte eine höhere Geschwindigkeit wählen.',
+    'video.big': ' – sehr groß, eine höhere Geschwindigkeit ist ratsam.',
+    'video.starting': 'Starte …',
+    'video.done': 'Fertig: {codec}, {width} × {height}, {frames} Bilder, {size}.',
+    'video.tilesFailed': '{failed} von {total} Kacheln konnten nicht geladen werden, der Hintergrund ist dort leer.',
+    'video.aborted': 'Abgebrochen – es wurde keine Datei gespeichert.',
+    'video.failed': 'Export fehlgeschlagen: {message}',
+    'video.fileName': 'aktivitaet',
+    'video.aspect.16:9': '16:9 Querformat',
+    'video.aspect.4:3': '4:3 Querformat',
+    'video.aspect.1:1': '1:1 Quadrat',
+    'video.aspect.4:5': '4:5 Hochformat',
+    'video.aspect.9:16': '9:16 Hochformat (Story/Reel)',
+    'video.quality.360': 'Vorschau',
+    'video.quality.720': 'HD',
+    'video.quality.1080': 'Full HD',
+    'video.err.noWebCodecs': 'Dieser Browser unterstützt keinen Videoexport (WebCodecs). Bitte Chrome oder Edge verwenden.',
+    'video.err.noPositions': 'Keine Positionsdaten vorhanden – ohne GPS gibt es keine Karte zu exportieren.',
+    'video.err.noCodec': 'Der Browser kann weder H.264 noch VP9 kodieren.',
+    'video.progress.tiles': 'Lade Kartenkacheln ({done}/{total}) …',
+    'video.progress.render': 'Rendere Bild {index}/{total} …',
+    'video.progress.finish': 'Schließe die Datei ab …',
+    'video.err.noFrames': 'Der {codec}-Encoder dieses Browsers hat kein einziges Bild geliefert.',
+    'video.err.incomplete': 'Der Encoder lieferte nur {chunks} von {frames} Bildern; die Datei wäre unvollständig.',
+    'map.attribution': '© OpenStreetMap-Mitwirkende',
+  },
+
+  en: {
+    'help.close': 'Close help',
+    'help.label': 'Help: {title}',
+
+    'metric.hr': 'HR',
+    'metric.power': 'Power',
+    'metric.speed': 'Speed',
+    'metric.distance': 'Distance',
+    'metric.cadence': 'Cadence',
+    'metric.altitude': 'Elevation',
+
+    'row.distance': 'Distance',
+    'row.time': 'Time',
+    'row.elapsed': 'Elapsed Time',
+    'row.stopped': 'Stopped Time',
+    'row.avgSpeed': 'Avg Speed',
+    'row.maxSpeed': 'Max Speed',
+    'row.avgHr': 'Avg HR',
+    'row.maxHr': 'Max HR',
+    'row.avgPower': 'Avg Power',
+    'row.maxPower': 'Max Power',
+    'row.np': 'Normalized Power',
+    'row.avgCadence': 'Avg Cadence',
+    'row.ascent': 'Ascent',
+    'row.descent': 'Descent',
+    'row.minAlt': 'Min Elevation',
+    'row.maxAlt': 'Max Elevation',
+    'row.calories': 'Calories',
+    'row.work': 'Work',
+    'row.tss': 'Training Stress Score',
+    'row.if': 'Intensity Factor',
+    'table.metric': 'Metric',
+
+    'slot.file': 'File {n}',
+    'slot.remove': 'Remove file',
+    'slot.minFiles': 'At least {n} files',
+    'slot.offset': 'Start offset {name}',
+    'file.reading': 'Reading file',
+    'file.dataLoaded': 'Data loaded',
+    'file.loading': 'Loading ...',
+    'file.readingMeta': 'Reading {name} ...',
+    'file.parsing': 'Analyzing file',
+    'file.processing': 'Processing ...',
+    'file.parsingMeta': 'Analyzing {name} ...',
+    'file.done': 'Done',
+    'file.loaded': 'Loaded',
+    'file.error': 'Error',
+    'file.loadError': 'Could not load the file: {message}',
+    'file.readFailed': 'Could not read the file.',
+    'summary.points': '{n} points',
+    'summary.duration': 'Duration: {value}',
+    'summary.distance': 'Distance: {value}',
+
+    'err.unsupported': 'Only FIT, GPX (also as .gz) and ZIP files containing a single activity are supported.',
+    'err.gzip': 'The compressed file (.gz) could not be unpacked: {message}',
+    'err.zip': 'The ZIP could not be unpacked: {message}',
+    'err.zipNested': 'The ZIP contains further ZIP archives and looks like a full account export. Please export a single activity (in Garmin: “Export File”) or unpack the .fit file you want.',
+    'err.zipEmpty': 'No .fit or .gpx file (also .gz) was found in the ZIP.',
+    'err.zipMany': 'The ZIP contains {n} activities. Please export a single activity (in Garmin: “Export File”) or unpack the file you want.',
+    'err.gpxParse': 'The GPX file could not be read: {message}',
+    'err.invalidXml': 'invalid XML',
+    'err.noTrackpoints': 'No track points were found in {name}.',
+    'err.noRecords': 'No FIT records were found in {name}.',
+    'err.noUsableRecords': 'No usable FIT records were found in {name}.',
+
+    'axis.time': 'Time',
+    'axis.value': 'Value',
+    'inspector.hoverEmpty': 'Move the mouse over the graph',
+    'inspector.noFile': 'No file loaded yet',
+    'distance.pickEnd': 'Start set – now pick the end point',
+
+    'video.reason.webcodecs': 'Video export needs WebCodecs (a current Chrome or Edge).',
+    'video.reason.noGps': 'Load a file with GPS data first.',
+    'video.close': 'Close',
+    'video.cancel': 'Cancel',
+    'video.estimate': 'Video: {duration} · {frames} frames · up to approx. {size}',
+    'video.tooBig': ' – too large for memory, please choose a higher speed.',
+    'video.big': ' – very large, a higher speed is advisable.',
+    'video.starting': 'Starting …',
+    'video.done': 'Done: {codec}, {width} × {height}, {frames} frames, {size}.',
+    'video.tilesFailed': '{failed} of {total} map tiles could not be loaded; the background is empty there.',
+    'video.aborted': 'Canceled – no file was saved.',
+    'video.failed': 'Export failed: {message}',
+    'video.fileName': 'activity',
+    'video.aspect.16:9': '16:9 Landscape',
+    'video.aspect.4:3': '4:3 Landscape',
+    'video.aspect.1:1': '1:1 Square',
+    'video.aspect.4:5': '4:5 Portrait',
+    'video.aspect.9:16': '9:16 Portrait (Story/Reel)',
+    'video.quality.360': 'Preview',
+    'video.quality.720': 'HD',
+    'video.quality.1080': 'Full HD',
+    'video.err.noWebCodecs': 'This browser does not support video export (WebCodecs). Please use Chrome or Edge.',
+    'video.err.noPositions': 'No position data available – without GPS there is no map to export.',
+    'video.err.noCodec': 'The browser can encode neither H.264 nor VP9.',
+    'video.progress.tiles': 'Loading map tiles ({done}/{total}) …',
+    'video.progress.render': 'Rendering frame {index}/{total} …',
+    'video.progress.finish': 'Finishing the file …',
+    'video.err.noFrames': 'This browser’s {codec} encoder did not deliver a single frame.',
+    'video.err.incomplete': 'The encoder delivered only {chunks} of {frames} frames; the file would be incomplete.',
+    'map.attribution': '© OpenStreetMap contributors',
+  },
+};
+
+export function t(key, params) {
+  const text = DICT[LANG][key] ?? DICT.de[key];
+  if (text === undefined) {
+    console.warn(`Missing translation: ${key}`);
+    return key;
+  }
+  return params ? text.replace(/\{(\w+)\}/g, (match, name) => (name in params ? String(params[name]) : match)) : text;
+}
+
+// Fuer Pruefungen (Schluessel muessen in beiden Sprachen existieren).
+export const DICTIONARY = DICT;

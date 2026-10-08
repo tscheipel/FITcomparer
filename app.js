@@ -7,7 +7,8 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { gunzipSync, unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { initTooltips } from './tooltips.js?v=12';
+import { LOCALE, t } from './i18n.js?v=14';
+import { initTooltips } from './tooltips.js?v=14';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -21,15 +22,15 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=12';
+} from './video-export.js?v=14';
 
 const METRICS = [
-  { key: 'heartRate', label: 'HR', unit: 'bpm', color: '#ff9f5c' },
-  { key: 'power', label: 'Power', unit: 'W', color: '#4de1c1' },
-  { key: 'speed', label: 'Geschwindigkeit', unit: 'km/h', color: '#78a6ff' },
-  { key: 'distance', label: 'Distanz', unit: 'km', color: '#ffffff' },
-  { key: 'cadence', label: 'Kadenz', unit: 'rpm', color: '#f4d35e' },
-  { key: 'altitude', label: 'Höhe', unit: 'm', color: '#d6a7ff' },
+  { key: 'heartRate', label: t('metric.hr'), unit: 'bpm', color: '#ff9f5c' },
+  { key: 'power', label: t('metric.power'), unit: 'W', color: '#4de1c1' },
+  { key: 'speed', label: t('metric.speed'), unit: 'km/h', color: '#78a6ff' },
+  { key: 'distance', label: t('metric.distance'), unit: 'km', color: '#ffffff' },
+  { key: 'cadence', label: t('metric.cadence'), unit: 'rpm', color: '#f4d35e' },
+  { key: 'altitude', label: t('metric.altitude'), unit: 'm', color: '#d6a7ff' },
 ];
 
 const SPEED_MEDIAN_RADIUS_SECONDS = 5;
@@ -41,57 +42,57 @@ const TRACK_COLORS = ['#4de1c1', '#78a6ff', '#ff9f5c', '#f4d35e', '#d6a7ff', '#f
 // in die FIT-Datei geschrieben hat, `computed` rechnet ihn aus den Messpunkten
 // nach. Zeilen mit `window: true` erscheinen auch in den Fenster-Tabellen.
 const COMPARISON_ROWS = [
-  { label: 'Distanz', unit: 'km', decimals: 2, window: true,
+  { label: t('row.distance'), unit: 'km', decimals: 2, window: true,
     session: (s) => s.totalDistance,
     computed: (track, start, end) => calculateDistanceCovered(track, start, end) },
-  { label: 'Zeit', format: 'duration', window: true,
+  { label: t('row.time'), format: 'duration', window: true,
     session: (s) => s.timerTime,
     computed: (track, start, end) => calculateElapsedTime(track, start, end) },
-  { label: 'Verstrichene Zeit', format: 'duration',
+  { label: t('row.elapsed'), format: 'duration',
     session: (s) => s.elapsedTime },
-  { label: 'Stehzeit', format: 'duration', window: true,
+  { label: t('row.stopped'), format: 'duration', window: true,
     computed: (track, start, end) => calculateStoppedTime(track, start, end) },
-  { label: 'Ø Geschwindigkeit', unit: 'km/h', decimals: 1, window: true,
+  { label: t('row.avgSpeed'), unit: 'km/h', decimals: 1, window: true,
     session: (s) => s.avgSpeed,
     computed: (track, start, end) => calculateAverageSpeed(track, start, end) },
-  { label: 'Max. Geschwindigkeit', unit: 'km/h', decimals: 1, window: true,
+  { label: t('row.maxSpeed'), unit: 'km/h', decimals: 1, window: true,
     session: (s) => s.maxSpeed,
     computed: (track, start, end) => maxMetric(track, start, end, 'speed') },
-  { label: 'Ø HF', unit: 'bpm', decimals: 0, window: true,
+  { label: t('row.avgHr'), unit: 'bpm', decimals: 0, window: true,
     session: (s) => s.avgHeartRate,
     computed: (track, start, end) => averageMetric(track, start, end, 'heartRate') },
-  { label: 'Max. HF', unit: 'bpm', decimals: 0, window: true,
+  { label: t('row.maxHr'), unit: 'bpm', decimals: 0, window: true,
     session: (s) => s.maxHeartRate,
     computed: (track, start, end) => maxMetric(track, start, end, 'heartRate') },
-  { label: 'Ø Power', unit: 'W', decimals: 0, window: true,
+  { label: t('row.avgPower'), unit: 'W', decimals: 0, window: true,
     session: (s) => s.avgPower,
     computed: (track, start, end) => averageMetric(track, start, end, 'power') },
-  { label: 'Max. Power', unit: 'W', decimals: 0, window: true,
+  { label: t('row.maxPower'), unit: 'W', decimals: 0, window: true,
     session: (s) => s.maxPower,
     computed: (track, start, end) => maxMetric(track, start, end, 'power') },
-  { label: 'Normalized Power', unit: 'W', decimals: 0, window: true,
+  { label: t('row.np'), unit: 'W', decimals: 0, window: true,
     session: (s) => s.normalizedPower,
     computed: (track, start, end) => calculateNormalizedPower(track, start, end) },
-  { label: 'Ø Kadenz', unit: 'rpm', decimals: 0, window: true,
+  { label: t('row.avgCadence'), unit: 'rpm', decimals: 0, window: true,
     session: (s) => s.avgCadence,
     computed: (track, start, end) => averageMetric(track, start, end, 'cadence', { ignoreZeros: true }) },
-  { label: 'Anstieg', unit: 'm', decimals: 0, window: true,
+  { label: t('row.ascent'), unit: 'm', decimals: 0, window: true,
     session: (s) => s.totalAscent,
     computed: (track, start, end) => calculateElevationGain(track, start, end) },
-  { label: 'Abstieg', unit: 'm', decimals: 0, window: true,
+  { label: t('row.descent'), unit: 'm', decimals: 0, window: true,
     session: (s) => s.totalDescent,
     computed: (track, start, end) => calculateElevationLoss(track, start, end) },
-  { label: 'Min. Höhe', unit: 'm', decimals: 0, window: true,
+  { label: t('row.minAlt'), unit: 'm', decimals: 0, window: true,
     session: (s) => s.minAltitude,
     computed: (track, start, end) => minMetric(track, start, end, 'altitude') },
-  { label: 'Max. Höhe', unit: 'm', decimals: 0, window: true,
+  { label: t('row.maxAlt'), unit: 'm', decimals: 0, window: true,
     session: (s) => s.maxAltitude,
     computed: (track, start, end) => maxMetric(track, start, end, 'altitude') },
-  { label: 'Kalorien', unit: 'kcal', decimals: 0, session: (s) => s.totalCalories },
-  { label: 'Arbeit', unit: 'kJ', decimals: 0,
+  { label: t('row.calories'), unit: 'kcal', decimals: 0, session: (s) => s.totalCalories },
+  { label: t('row.work'), unit: 'kJ', decimals: 0,
     session: (s) => (Number.isFinite(s.totalWork) ? s.totalWork / 1000 : null) },
-  { label: 'Training Stress Score', decimals: 1, session: (s) => s.trainingStressScore },
-  { label: 'Intensity Factor', decimals: 3, session: (s) => s.intensityFactor },
+  { label: t('row.tss'), decimals: 1, session: (s) => s.trainingStressScore },
+  { label: t('row.if'), decimals: 3, session: (s) => s.intensityFactor },
 ];
 
 const DEVICE_COMPARISON_ROWS = COMPARISON_ROWS.filter((row) => row.session);
@@ -277,7 +278,7 @@ function getLoadedSlots() {
 }
 
 function getSlotDisplayName(slot) {
-  return slot.track?.displayName?.trim() || slot.track?.fileName || `Datei ${getSlotIndex(slot) + 1}`;
+  return slot.track?.displayName?.trim() || slot.track?.fileName || t('slot.file', { n: getSlotIndex(slot) + 1 });
 }
 
 // Slot 0 ist der Zeitbezug und bleibt bei 0. Ein negativer Offset zieht den
@@ -451,12 +452,12 @@ function syncSlotChrome() {
 
     slot.el.card.style.setProperty('--slot-color', color);
     slot.el.color.value = color;
-    slot.el.kicker.textContent = `Datei ${index + 1}`;
+    slot.el.kicker.textContent = t('slot.file', { n: index + 1 });
     slot.el.remove.disabled = !removable;
-    slot.el.remove.title = removable ? 'Datei entfernen' : `Mindestens ${MIN_SLOTS} Dateien`;
+    slot.el.remove.title = removable ? t('slot.remove') : t('slot.minFiles', { n: MIN_SLOTS });
 
     slot.el.offsetGroup.classList.toggle('hidden', index === 0);
-    slot.el.offsetLabel.textContent = `Start-Offset ${name}`;
+    slot.el.offsetLabel.textContent = t('slot.offset', { name });
 
     slot.el.legendDot.style.background = color;
     slot.el.legendLabel.textContent = name;
@@ -518,7 +519,7 @@ function bindTrackNameEditor(slot) {
   input.addEventListener('input', () => updateTrackDisplayName(slot, input.value));
   input.addEventListener('change', () => {
     if (!input.value.trim()) {
-      input.value = slot.track?.fileName ?? `Datei ${getSlotIndex(slot) + 1}`;
+      input.value = slot.track?.fileName ?? t('slot.file', { n: getSlotIndex(slot) + 1 });
       updateTrackDisplayName(slot, input.value);
     }
   });
@@ -701,9 +702,9 @@ function updateVideoButton() {
   const hasPositions = getLoadedSlots().some((slot) => slot.track.mapSamples.length);
   let reason = '';
   if (!isVideoExportSupported()) {
-    reason = 'Der Videoexport braucht WebCodecs (aktuelles Chrome oder Edge).';
+    reason = t('video.reason.webcodecs');
   } else if (!hasPositions) {
-    reason = 'Zuerst eine Datei mit GPS-Daten laden.';
+    reason = t('video.reason.noGps');
   }
 
   elements.exportVideoButton.disabled = Boolean(reason);
@@ -735,7 +736,7 @@ function openVideoDialog() {
 
   elements.videoProgress.classList.add('hidden');
   elements.videoStatus.textContent = '';
-  elements.videoCancel.textContent = 'Schlie\u00dfen';
+  elements.videoCancel.textContent = t('video.close');
   videoExportState.view = AUTO_VIEW;
   videoExportState.viewport = null;
   updateVideoEstimate();
@@ -816,12 +817,16 @@ function updateVideoEstimate() {
   const bytes = (bitrateForSize(width, height) * seconds) / 8;
   const frames = Math.ceil(seconds * VIDEO_FPS);
 
-  let text = `Video: ${formatDuration(seconds)} \u00b7 ${frames.toLocaleString('de-DE')} Bilder \u00b7 bis ca. ${formatBytes(bytes)}`;
+  let text = t('video.estimate', {
+    duration: formatDuration(seconds),
+    frames: frames.toLocaleString(LOCALE),
+    size: formatBytes(bytes),
+  });
   const tooBig = bytes > VIDEO_MAX_BYTES;
   if (tooBig) {
-    text += ' \u2013 zu gro\u00df f\u00fcr den Arbeitsspeicher, bitte eine h\u00f6here Geschwindigkeit w\u00e4hlen.';
+    text += t('video.tooBig');
   } else if (bytes > VIDEO_WARN_BYTES) {
-    text += ' \u2013 sehr gro\u00df, eine h\u00f6here Geschwindigkeit ist ratsam.';
+    text += t('video.big');
   }
 
   elements.videoEstimate.textContent = text;
@@ -849,7 +854,7 @@ function setVideoBusy(busy) {
   }
   elements.videoPreview.classList.toggle('locked', busy);
   elements.videoProgressTrack.classList.toggle('loading', busy);
-  elements.videoCancel.textContent = busy ? 'Abbrechen' : 'Schlie\u00dfen';
+  elements.videoCancel.textContent = busy ? t('video.cancel') : t('video.close');
   if (!busy) {
     updateVideoEstimate();
   }
@@ -865,7 +870,7 @@ async function runVideoExport() {
   const controller = new AbortController();
   videoExportState.controller = controller;
   setVideoBusy(true);
-  setVideoProgress(0, 'Starte \u2026');
+  setVideoProgress(0, t('video.starting'));
 
   try {
     const result = await exportVideo({
@@ -884,17 +889,17 @@ async function runVideoExport() {
     });
 
     downloadBlob(result.blob, buildVideoFileName(slots, width, height));
-    const notes = [`Fertig: ${result.codec}, ${width} \u00d7 ${height}, ${result.frameCount.toLocaleString('de-DE')} Bilder, ${formatBytes(result.blob.size)}.`];
+    const notes = [t('video.done', { codec: result.codec, width, height, frames: result.frameCount.toLocaleString(LOCALE), size: formatBytes(result.blob.size) })];
     if (result.tilesFailed) {
-      notes.push(`${result.tilesFailed} von ${result.tilesTotal} Kacheln konnten nicht geladen werden, der Hintergrund ist dort leer.`);
+      notes.push(t('video.tilesFailed', { failed: result.tilesFailed, total: result.tilesTotal }));
     }
     setVideoProgress(1, notes.join(' '));
   } catch (error) {
     if (error?.name === 'AbortError') {
-      setVideoProgress(0, 'Abgebrochen \u2013 es wurde keine Datei gespeichert.');
+      setVideoProgress(0, t('video.aborted'));
     } else {
       console.error(error);
-      setVideoProgress(0, `Export fehlgeschlagen: ${error.message}`);
+      setVideoProgress(0, t('video.failed', { message: error.message }));
     }
   } finally {
     videoExportState.controller = null;
@@ -909,7 +914,7 @@ function buildVideoFileName(slots, width, height) {
     .join('_vs_')
     .replace(/[^\w\-\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc\u00df.]+/g, '_')
     .slice(0, 70);
-  return `${base || 'aktivitaet'}_${width}x${height}.mp4`;
+  return `${base || t('video.fileName')}_${width}x${height}.mp4`;
 }
 
 function downloadBlob(blob, fileName) {
@@ -925,7 +930,7 @@ function downloadBlob(blob, fileName) {
 
 function formatBytes(bytes) {
   if (bytes >= 1e9) {
-    return `${(bytes / 1e9).toFixed(1).replace('.', ',')} GB`;
+    return `${(bytes / 1e9).toLocaleString(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
   }
   return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 }
@@ -951,7 +956,7 @@ function createMetricButtons() {
 function initMap() {
   state.map = L.map('map', { preferCanvas: true }).setView([47.0707, 15.4395], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap-Mitwirkende',
+    attribution: t('map.attribution').replace('©', '&copy;'),
     maxZoom: 19,
   }).addTo(state.map);
   state.map.on('click', handleMapDistanceSelectionClick);
@@ -1056,7 +1061,7 @@ function initChart() {
           },
           title: {
             display: true,
-            text: 'Zeit',
+            text: t('axis.time'),
             color: '#9fb1c9',
           },
         },
@@ -1065,7 +1070,7 @@ function initChart() {
           ticks: { color: '#9fb1c9' },
           title: {
             display: true,
-            text: 'Wert',
+            text: t('axis.value'),
             color: '#9fb1c9',
           },
         },
@@ -1127,21 +1132,21 @@ async function handleFileSelection(slot) {
   }
 
   setLoadingState(slot, {
-    phase: 'Lese Datei',
+    phase: t('file.reading'),
     percent: 5,
     loading: true,
-    status: 'L\u00e4dt ...',
-    meta: `${file.name} wird gelesen ...`,
+    status: t('file.loading'),
+    meta: t('file.readingMeta', { name: file.name }),
   });
 
   try {
     const buffer = await readFileWithProgress(file, slot);
     setLoadingState(slot, {
-      phase: 'Analysiere Datei',
+      phase: t('file.parsing'),
       percent: 90,
       loading: true,
-      status: 'Verarbeite ...',
-      meta: `${file.name} wird analysiert ...`,
+      status: t('file.processing'),
+      meta: t('file.parsingMeta', { name: file.name }),
     });
 
     const track = await parseFitnessFile(buffer, file);
@@ -1152,10 +1157,10 @@ async function handleFileSelection(slot) {
     clearDistanceSelectionWindow();
     syncSlotChrome();
     setLoadingState(slot, {
-      phase: 'Fertig',
+      phase: t('file.done'),
       percent: 100,
       loading: false,
-      status: 'Geladen',
+      status: t('file.loaded'),
       meta: buildTrackSummary(track, track.fileName),
     });
     recomputeTimeline();
@@ -1167,11 +1172,11 @@ async function handleFileSelection(slot) {
     slot.el.name.classList.add('hidden');
     syncSlotChrome();
     setLoadingState(slot, {
-      phase: 'Fehler',
+      phase: t('file.error'),
       percent: 0,
       loading: false,
-      status: 'Fehler',
-      meta: `Datei konnte nicht geladen werden: ${error.message}`,
+      status: t('file.error'),
+      meta: t('file.loadError', { message: error.message }),
     });
     renderEmptyState();
   }
@@ -1180,7 +1185,7 @@ async function handleFileSelection(slot) {
 function readFileWithProgress(file, slot) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    updateProgress(slot, 5, 'Lese Datei');
+    updateProgress(slot, 5, t('file.reading'));
 
     reader.onprogress = (event) => {
       if (!event.lengthComputable) {
@@ -1188,16 +1193,16 @@ function readFileWithProgress(file, slot) {
       }
 
       const percent = Math.min(85, Math.max(10, Math.round((event.loaded / event.total) * 80)));
-      updateProgress(slot, percent, 'Lese Datei');
+      updateProgress(slot, percent, t('file.reading'));
     };
 
     reader.onload = () => {
-      updateProgress(slot, 90, 'Daten geladen');
+      updateProgress(slot, 90, t('file.dataLoaded'));
       resolve(reader.result);
     };
 
     reader.onerror = () => {
-      reject(reader.error || new Error('Datei konnte nicht gelesen werden.'));
+      reject(reader.error || new Error(t('file.readFailed')));
     };
 
     reader.readAsArrayBuffer(file);
@@ -1234,7 +1239,7 @@ function parseActivityBuffer(buffer, fileName) {
     return parseFit(buffer, fileName);
   }
 
-  throw new Error('Nur FIT, GPX (auch als .gz) und ZIP mit einer Aktivität werden unterstützt.');
+  throw new Error(t('err.unsupported'));
 }
 
 function isGzipBytes(bytes) {
@@ -1245,7 +1250,7 @@ function gunzipActivity(bytes, name) {
   try {
     return { name: name.replace(/\.gz$/i, ''), data: gunzipSync(bytes) };
   } catch (error) {
-    throw new Error(`Die komprimierte Datei (.gz) konnte nicht entpackt werden: ${error.message}`);
+    throw new Error(t('err.gzip', { message: error.message }));
   }
 }
 
@@ -1273,19 +1278,19 @@ function extractActivityFromZip(buffer) {
       },
     });
   } catch (error) {
-    throw new Error(`ZIP konnte nicht entpackt werden: ${error.message}`);
+    throw new Error(t('err.zip', { message: error.message }));
   }
 
   const names = Object.keys(entries);
   if (!names.length) {
     if (seenNames.some((name) => /\.zip$/i.test(name))) {
-      throw new Error('Das ZIP enthält weitere ZIP-Archive und sieht nach dem Komplett-Export aus. Bitte eine einzelne Aktivität exportieren (bei Garmin: „Datei exportieren“) oder die gewünschte .fit-Datei entpacken.');
+      throw new Error(t('err.zipNested'));
     }
-    throw new Error('Im ZIP wurde keine .fit- oder .gpx-Datei (auch .gz) gefunden.');
+    throw new Error(t('err.zipEmpty'));
   }
 
   if (names.length > 1) {
-    throw new Error(`Das ZIP enthält ${names.length} Aktivitäten. Bitte eine einzelne Aktivität exportieren (bei Garmin: „Datei exportieren“) oder die gewünschte Datei entpacken.`);
+    throw new Error(t('err.zipMany', { n: names.length }));
   }
 
   const [entryName] = names;
@@ -1297,7 +1302,7 @@ function parseGpx(buffer, fileName) {
   const document = new DOMParser().parseFromString(xml, 'application/xml');
   const parseError = document.querySelector('parsererror');
   if (parseError) {
-    throw new Error(`GPX konnte nicht gelesen werden: ${parseError.textContent?.trim() || 'ungültiges XML'}`);
+    throw new Error(t('err.gpxParse', { message: parseError.textContent?.trim() || t('err.invalidXml') }));
   }
 
   const points = Array.from(document.getElementsByTagName('trkpt'))
@@ -1325,7 +1330,7 @@ function parseGpx(buffer, fileName) {
     .filter(Boolean);
 
   if (!points.length) {
-    throw new Error(`In ${fileName} wurden keine Trackpunkte gefunden.`);
+    throw new Error(t('err.noTrackpoints', { name: fileName }));
   }
 
   const samples = normalizeSamples(points, true);
@@ -1346,12 +1351,12 @@ async function parseFit(buffer, fileName) {
   const samples = collectFitSamples(parsed);
 
   if (!samples.length) {
-    throw new Error(`In ${fileName} wurden keine FIT-Records gefunden.`);
+    throw new Error(t('err.noRecords', { name: fileName }));
   }
 
   const normalized = normalizeSamples(samples, true);
   if (!normalized.length) {
-    throw new Error(`In ${fileName} wurden keine verwertbaren FIT-Records gefunden.`);
+    throw new Error(t('err.noUsableRecords', { name: fileName }));
   }
 
   return createTrack(normalized, normalized.filter(hasCoordinates), fileName, 'FIT', readFitSession(parsed));
@@ -2096,7 +2101,7 @@ function refreshCurrentPointInspector() {
 function refreshHoverInspector() {
   if (chartInteraction.hoverTime === null) {
     elements.hoverPointTime.textContent = '-';
-    elements.hoverPointValues.innerHTML = '<p class="inspector-empty">Maus über den Graphen bewegen</p>';
+    elements.hoverPointValues.innerHTML = `<p class="inspector-empty">${t('inspector.hoverEmpty')}</p>`;
     return;
   }
 
@@ -2107,7 +2112,7 @@ function refreshHoverInspector() {
 function renderPointTable(container, overallTime) {
   const columns = getComparisonColumns();
   if (!columns.length) {
-    container.innerHTML = '<p class="inspector-empty">Noch keine Datei geladen</p>';
+    container.innerHTML = `<p class="inspector-empty">${t('inspector.noFile')}</p>`;
     return;
   }
 
@@ -2260,7 +2265,7 @@ function refreshDistanceSelectionInspector() {
   });
 
   if (distanceInteraction.clicks.length < 2) {
-    elements.distanceSelectionRange.textContent = 'Start gesetzt \u2013 jetzt Endpunkt w\u00e4hlen';
+    elements.distanceSelectionRange.textContent = t('distance.pickEnd');
     elements.distanceSelectionValues.innerHTML = '';
     return;
   }
@@ -2371,7 +2376,7 @@ function renderComparisonTable(container, { rows, columns, getValue, getReferenc
 
   container.innerHTML = `
     <table class="comparison-table">
-      <thead><tr><th scope="col">Metrik</th>${header}</tr></thead>
+      <thead><tr><th scope="col">${t('table.metric')}</th>${header}</tr></thead>
       <tbody>${body}</tbody>
     </table>
   `;
@@ -2429,7 +2434,7 @@ function formatComparisonValue(row, value) {
 }
 
 function formatNumber(value, decimals) {
-  return value.toLocaleString('de-DE', {
+  return value.toLocaleString(LOCALE, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
@@ -2680,9 +2685,9 @@ function buildTrackSummary(track, fileName) {
   const distance = Number.isFinite(track.distance) ? `${track.distance.toFixed(2)} km` : 'n/a';
   return [
     `${fileName} (${track.source})`,
-    `${track.samples.length} Punkte`,
-    `Dauer: ${formatDuration(track.duration)}`,
-    `Distanz: ${distance}`,
+    t('summary.points', { n: track.samples.length }),
+    t('summary.duration', { value: formatDuration(track.duration) }),
+    t('summary.distance', { value: distance }),
   ].join(' · ');
 }
 

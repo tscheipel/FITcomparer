@@ -5,13 +5,15 @@
  * See the LICENSE file in the project root for the full license text.
  */
 
+import { LANG, t } from './i18n.js?v=14';
+
 // Kleine ?-Symbole mit Erklaerung. Im Markup steht nur
 //   <button type="button" class="help" data-help="offset">?</button>
 // Texte und Verhalten kommen von hier. Das Wiring haengt per Event-Delegation am
 // Dokument; deshalb funktionieren auch Buttons in <template>-Klonen (Dateikarten)
 // ohne zusaetzlichen Code.
 
-export const HELP = {
+const HELP_DE = {
   file: {
     title: 'Dateien laden und benennen',
     body: [
@@ -138,6 +140,135 @@ export const HELP = {
   },
 };
 
+const HELP_EN = {
+  file: {
+    title: 'Loading and naming files',
+    body: [
+      'Choose a FIT file, a GPX file or the ZIP straight from Garmin Connect (gear icon → “Export File”). FIT files from Wahoo, COROS, Suunto, Polar, Strava and others work the same way, also as .gz. You can also just drag a file onto the card. The file is only processed in your browser.',
+      'You can rename it freely, for example to “Tobi 2025”. The name shows up everywhere: in the tables, in the graph, in the map legend and in the exported video.',
+      'The color dot sets the color of the activity, and × removes the file again.',
+    ],
+  },
+  addFile: {
+    title: 'Add another activity',
+    body: [
+      'You can compare up to 6 activities at the same time. Use × on a file card to remove it again; at least two cards always stay.',
+    ],
+  },
+  offset: {
+    title: 'Start offset',
+    body: [
+      'Compensates for different start times. In races or group rides the recordings rarely begin at the same moment: one watch starts earlier, another later.',
+      'The offset shifts this activity relative to File 1 until landmarks (starting gun, intersection, climb) line up. File 1 is the reference and stays unchanged.',
+      'Enter as mm:ss, negative values work too.',
+    ],
+  },
+  compare: {
+    title: 'Overall comparison',
+    body: [
+      'This puts the key figures of all activities side by side: rows are the metrics, columns are the files.',
+      'At the top you see the values your device saved itself, below them the same values recalculated from the data points.',
+    ],
+  },
+  deviceValues: {
+    title: 'Device values',
+    body: [
+      'Your watch or bike computer wrote these numbers into the file itself at the end of the activity. They match what Garmin Connect or your device’s app shows.',
+      'If a file contains no such values (for example GPX), its column stays empty.',
+    ],
+  },
+  computedValues: {
+    title: 'Calculated from the data points',
+    body: [
+      'The same key figures, recalculated from the per-second values in the file, using exactly the calculation that the time and distance windows use.',
+      'The badge shows the deviation from the device value. Small deviations of up to about 2% are normal because the watch measures more finely internally than it stores.',
+    ],
+  },
+  playback: {
+    title: 'Playback',
+    body: [
+      '− 1 min, − 10 s, + 10 s and + 1 min jump in time; a running playback continues afterwards. ↺ jumps back to the start.',
+      'The speed (0.5× to 500×) determines how fast the markers move on the map.',
+      'In the time field you can type a time, for example 12:34 or 1:30:00, and press Enter to jump there.',
+    ],
+  },
+  map: {
+    title: 'Map',
+    body: [
+      'The markers show where each activity is at the current time.',
+      'Click twice on the track to draw a distance window: the table below then compares exactly that stretch for all files, even if they rode it at different times.',
+      'You can drag the bottom edge of the map to change its height.',
+    ],
+  },
+  exportVideo: {
+    title: 'Save as MP4',
+    body: [
+      'Renders the map with all activities and their moving markers as a video. This happens in your browser, nothing is uploaded.',
+      'You choose speed, format, resolution and map section. This needs a current Chrome, Edge or Firefox browser.',
+    ],
+  },
+  graph: {
+    title: 'Graph',
+    body: [
+      'Choose at the top which metric is shown over time.',
+      'Drag across the graph with the mouse to draw a time window: the table below then compares exactly that section.',
+      'The yellow line is the current playback position.',
+    ],
+  },
+  currentPoint: {
+    title: 'Current point',
+    body: ['Values of each activity at the position of the yellow line, i.e. the current playback position.'],
+  },
+  hover: {
+    title: 'Hover',
+    body: [
+      'Values of each activity at the point your mouse pointer is over in the graph. This lets you see details without changing the playback.',
+    ],
+  },
+  timeWindow: {
+    title: 'Time window',
+    body: [
+      'Key figures of the section you dragged, for every file.',
+      'You can type the start and end precisely below, either as a time or as kilometers per file. × closes the window.',
+    ],
+  },
+  distanceWindow: {
+    title: 'Distance window',
+    body: [
+      'Key figures of the stretch between your two clicks on the map, measured separately for each file.',
+      'The next click on the track starts a new window.',
+    ],
+  },
+  videoSpeed: {
+    title: 'Video speed',
+    body: [
+      '60× means: one minute of activity takes one second in the video.',
+      'Below the fields you can see how long the video will be and how large the file can get at most.',
+    ],
+  },
+  videoFormat: {
+    title: 'Format',
+    body: [
+      'The aspect ratio of the video: landscape for screens and presentations, 1:1 for posts, 4:5 and 9:16 for portrait (stories, reels).',
+    ],
+  },
+  videoQuality: {
+    title: 'Resolution',
+    body: [
+      'The image size, measured on the short side. “Preview” is fast and small, “Full HD” is sharp but much larger. The pixel count is shown in parentheses.',
+    ],
+  },
+  videoCrop: {
+    title: 'Section',
+    body: [
+      'Decide which part of the map is visible in the video. Drag the preview to move it, zoom with the mouse wheel, the slider or two fingers.',
+      '“All tracks” fits everything into the frame, “Current map section” takes over the area of the large map.',
+    ],
+  },
+};
+
+export const HELP = LANG === 'en' ? HELP_EN : HELP_DE;
+
 const SHOW_DELAY_MS = 120;
 const HIDE_DELAY_MS = 150;
 const EDGE = 12;
@@ -188,7 +319,7 @@ function fill(entry) {
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
     closeButton.className = 'help-tip-close';
-    closeButton.setAttribute('aria-label', 'Hilfe schließen');
+    closeButton.setAttribute('aria-label', t('help.close'));
     closeButton.textContent = '×';
     element.prepend(closeButton);
   }
@@ -282,7 +413,7 @@ function labelButtons(root) {
       console.warn(`Kein Hilfetext fuer "${button.dataset.help}"`);
       continue;
     }
-    button.setAttribute('aria-label', `Hilfe: ${entry.title}`);
+    button.setAttribute('aria-label', t('help.label', { title: entry.title }));
     button.setAttribute('aria-haspopup', 'true');
   }
 }

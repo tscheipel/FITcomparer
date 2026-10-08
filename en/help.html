@@ -1,0 +1,474 @@
+<!doctype html>
+<!--
+  FITcomparer
+  Copyright (c) 2026 Tobias Scheipel
+  SPDX-License-Identifier: MIT
+  See the LICENSE file in the project root for the full license text.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--lang:head-->
+  <title>FITcomparer – Guide: Export activities from Garmin Connect and compare them</title>
+  <meta name="description" content="Guide to FITcomparer: How to export activities from Garmin Connect (web) or from Strava, Wahoo and COROS as FIT files, compare them side by side and save the comparison as an MP4 video.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="author" content="Tobias Scheipel">
+  <link rel="canonical" href="https://fit.scheipel.com/en/help.html">
+  <link rel="alternate" hreflang="de" href="https://fit.scheipel.com/help.html">
+  <link rel="alternate" hreflang="en" href="https://fit.scheipel.com/en/help.html">
+  <link rel="alternate" hreflang="x-default" href="https://fit.scheipel.com/help.html">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="FITcomparer">
+  <meta property="og:locale" content="en_GB">
+  <meta property="og:locale:alternate" content="de_AT">
+  <meta property="og:title" content="FITcomparer – Guide: Export activities from Garmin Connect and compare them">
+  <meta property="og:description" content="Guide to FITcomparer: How to export activities from Garmin Connect (web) or from Strava, Wahoo and COROS as FIT files, compare them side by side and save the comparison as an MP4 video.">
+  <meta property="og:url" content="https://fit.scheipel.com/en/help.html">
+  <meta property="og:image" content="https://fit.scheipel.com/og-image-en.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="FITcomparer with two compared Garmin activities">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="FITcomparer – Guide: Export activities from Garmin Connect and compare them">
+  <meta name="twitter:description" content="Guide to FITcomparer: How to export activities from Garmin Connect (web) or from Strava, Wahoo and COROS as FIT files, compare them side by side and save the comparison as an MP4 video.">
+  <meta name="twitter:image" content="https://fit.scheipel.com/og-image-en.png">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Export an activity from Garmin Connect (web) and compare it in FITcomparer",
+  "description": "Guide to FITcomparer: How to export activities from Garmin Connect (web) or from Strava, Wahoo and COROS as FIT files, compare them side by side and save the comparison as an MP4 video.",
+  "inLanguage": "en",
+  "image": "https://fit.scheipel.com/docs/img/en/garmin-export.webp",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "Open Garmin Connect",
+      "text": "Sign in at connect.garmin.com in your browser and open the activity. Exporting is only possible in the web version, not in the Garmin Connect app."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Click the gear icon",
+      "text": "Click the gear icon at the top right of the activity."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Export File",
+      "text": "Choose “Export File”. A ZIP containing the FIT file is downloaded; you do not need to unpack it."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Load the ZIP in FITcomparer",
+      "text": "Open fit.scheipel.com/en/ and choose the ZIP under “Select file”. Repeat this for the second activity."
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Compare",
+      "text": "Compare key figures, map and graph and, if you like, save the comparison as an MP4 video."
+    }
+  ]
+}
+  </script>
+  <script src="../lang.js?v=14"></script>
+  <!--/lang:head-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="../favicon.svg?v=14" type="image/svg+xml">
+  <link rel="icon" href="../favicon-32.png?v=14" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png?v=14">
+  <meta name="theme-color" content="#07111d">
+  <link rel="stylesheet" href="../styles.css?v=14">
+  <link rel="stylesheet" href="../help.css?v=14">
+</head>
+<body>
+  <div class="backdrop backdrop-a"></div>
+  <div class="backdrop backdrop-b"></div>
+
+  <header class="topbar">
+    <a class="brand" href="./">FITcomparer</a>
+    <div class="topbar-right">
+      <!--lang:switch-->
+      <nav class="lang-switch" aria-label="Language">
+      <a class="lang-link" href="../help.html" hreflang="de" lang="de" title="Deutsch" aria-label="Deutsch"><svg viewBox="0 0 3 2" aria-hidden="true" focusable="false"><rect width="3" height="2" fill="#ed2939"/><rect y="0.667" width="3" height="0.667" fill="#fff"/></svg></a>
+      <a class="lang-link is-active" href="./help.html" hreflang="en" lang="en" title="English" aria-label="English" aria-current="true"><svg viewBox="0 0 60 30" aria-hidden="true" focusable="false"><clipPath id="gbA"><path d="M0,0v30h60v-30z"/></clipPath><clipPath id="gbB"><path d="M30,15h30v15zv15h-30zh-30v-15zv-15h30z"/></clipPath><g clip-path="url(#gbA)"><path d="M0,0v30h60v-30z" fill="#012169"/><path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0L60,30M60,0L0,30" clip-path="url(#gbB)" stroke="#c8102e" stroke-width="4"/><path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/><path d="M30,0v30M0,15h60" stroke="#c8102e" stroke-width="6"/></g></svg></a>
+      </nav>
+      <!--/lang:switch-->
+      <a class="topbar-help" href="./">← Back to the app</a>
+    </div>
+  </header>
+
+  <main class="help-page">
+
+    <section class="doc" id="top">
+      <h1>FITcomparer – Guide</h1>
+      <p class="lead">Compare two to six activities from your Garmin watch or bike computer side by side: metrics, route, progression, and, if you like, as an MP4 video. Everything runs in your browser, and your files are not uploaded.</p>
+      <figure class="shot">
+        <img src="../docs/img/en/hero.webp" width="1800" height="1659" alt="FITcomparer with two loaded activities and the comparison of the device values">
+        <figcaption>Two activities loaded: the file cards on top, the metrics comparison below.</figcaption>
+      </figure>
+    </section>
+
+    <nav class="doc toc" aria-label="Contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#was-ist-das">What is FITcomparer good for?</a></li>
+        <li><a href="#schnellstart">Quick start in four steps</a></li>
+        <li><a href="#garmin-export">Getting files from Garmin Connect (web)</a></li>
+        <li><a href="#andere-plattformen">Files from other platforms</a></li>
+        <li><a href="#bedienung">Step-by-step usage</a>
+          <ol>
+            <li><a href="#dateien">Load, name, and color files</a></li>
+            <li><a href="#offset">Start offset: compensate for different start times</a></li>
+            <li><a href="#tabellen">The comparison tables</a></li>
+            <li><a href="#playback">Playback</a></li>
+            <li><a href="#karte">Map and distance window</a></li>
+            <li><a href="#graph">Graph and time window</a></li>
+            <li><a href="#video">Save as MP4 video</a></li>
+            <li><a href="#mobil">On your phone</a></li>
+          </ol>
+        </li>
+        <li><a href="#messmethodik">Device or calculated? Why the values differ</a></li>
+        <li><a href="#datenschutz">Privacy and external services</a></li>
+        <li><a href="#faq">FAQ and troubleshooting</a></li>
+        <li><a href="#credits">Credits and license</a></li>
+      </ol>
+    </nav>
+
+    <section class="doc" id="was-ist-das">
+      <h2>What is FITcomparer good for?</h2>
+      <p>Typical use cases:</p>
+      <ul>
+        <li>the same route in different years: Are you faster, did you have more or less power?</li>
+        <li>a race or a ride with friends: Who was where, and how did the heart rates compare?</li>
+        <li>two devices on one ride: How far do they differ from each other?</li>
+        <li>a small graphic to share: your comparison as a video, also in portrait format for stories.</li>
+      </ul>
+      <p>Next to many controls you will find a small <span class="help-glyph-inline" aria-hidden="true">?</span>. Hover over it with the mouse, tap it (on your phone), or reach it with the Tab key: A short explanation for exactly that element appears.</p>
+    </section>
+
+    <section class="doc" id="schnellstart">
+      <h2>Quick start in four steps</h2>
+      <ol class="steps">
+        <li><strong>Get your files.</strong> Export your activities from Garmin Connect on the website, as described in the <a href="#garmin-export">next section</a>. You get one ZIP each. Other platforms such as Strava, Wahoo, or COROS work too, see <a href="#andere-plattformen">Files from other platforms</a>.</li>
+        <li><strong>Load.</strong> Under “File 1”, click “Select file” and choose the ZIP (or the .fit file). You don’t need to unzip the ZIP.</li>
+        <li><strong>Second file.</strong> Do the same for “File 2”. Add more activities with “+ File” (up to six).</li>
+        <li><strong>Compare.</strong> The metrics appear side by side right away. With playback, both activities run across the map at the same time, and in the graph you can drag out sections.</li>
+      </ol>
+    </section>
+
+    <section class="doc" id="garmin-export">
+      <h2>Getting files from Garmin Connect (web)</h2>
+      <div class="note warn">
+        <p><strong>Website only.</strong> Exporting single activities is part of the web interface of Garmin Connect at <strong>connect.garmin.com</strong>, ideally on a computer. The Garmin Connect app does not offer it.</p>
+      </div>
+      <ol class="steps">
+        <li>Sign in at <strong>connect.garmin.com</strong> in your browser and <strong>open the activity</strong> you want to compare.</li>
+        <li>In the toolbar below the activity name (heart, pencil, star, group), click the <strong>gear icon</strong> (marker 1).</li>
+        <li>In the menu, choose <strong>“Export File”</strong> (marker 2).</li>
+        <li>Your browser downloads a <strong>ZIP</strong>. The file name is the activity number, for example <code>24589869683.zip</code>.</li>
+        <li>Load this ZIP into FITcomparer. <strong>It does not need to be unzipped.</strong> Repeat the steps for each additional activity.</li>
+      </ol>
+      <figure class="shot shot-medium">
+        <img src="../docs/img/en/garmin-export.webp" width="1466" height="1010" loading="lazy" alt="Garmin Connect: activity with the gear icon menu open, the gear icon and the Export File entry are marked">
+        <figcaption>Garmin Connect (web): ① gear icon, ② “Export File”. The layout may change, the label usually stays the same.</figcaption>
+      </figure>
+
+      <h3>Which formats does FITcomparer understand?</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Format</th><th>Where from</th><th>What happens</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ZIP from “Export File”</td><td>Gear icon → Export File</td><td>Loaded directly. Full analysis: device values and calculated values.</td></tr>
+            <tr><td>FIT (unpacked)</td><td>from the ZIP</td><td>Same as the ZIP.</td></tr>
+            <tr><td>.fit.gz / .gpx.gz</td><td>e.g. Strava full export</td><td>Loaded directly, also from inside a ZIP. Then handled like FIT or GPX.</td></tr>
+            <tr><td>GPX</td><td>Gear icon → Export to GPX</td><td>Works, but without device values, only calculated values. Heart rate, cadence, and power appear only if they are in the file.</td></tr>
+            <tr><td>TCX</td><td>Gear icon → Export to TCX</td><td>Not supported. Use “Export File” instead.</td></tr>
+            <tr><td>Full account export</td><td>Garmin account → Export data</td><td>Not loaded directly (contains many activities and further ZIPs). Unzip the archive and load the .fit file you want, or export the activity individually.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>If a ZIP contains several activities, FITcomparer stops with an error message instead of guessing.</p>
+    </section>
+
+    <section class="doc" id="andere-plattformen">
+      <h2>Files from other platforms</h2>
+      <p>Garmin Connect is just the example used to explain this guide. <strong>FIT is an open standard.</strong> Watches and bike computers from Wahoo, COROS, Suunto, Polar, Hammerhead, and others also write FIT files with the same structure: a summary of the activity and the per-second values. FITcomparer therefore reads them the same way, with device values and calculated values.</p>
+      <p>Rule of thumb: Look in the platform for a <strong>FIT export</strong> or for <strong>“Export Original”</strong>, because that is the unchanged file from your device. GPX works too, but contains no device values.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Platform</th><th>How to get the file</th><th>Note</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Strava</td><td>Web only: Open the activity and choose <strong>“Export Original”</strong> in the “…” menu. Alternatively, append <code>/export_original</code> to the activity’s address.</td><td>Usually FIT, exactly as uploaded. “Export GPX” gives only the route. In the full export, the files are often <code>.fit.gz</code>, which FITcomparer loads directly.</td></tr>
+            <tr><td>Wahoo</td><td>In the Wahoo app, open the workout, tap Share at the top right, and choose <strong>“Share .fit file”</strong>.</td><td>FIT</td></tr>
+            <tr><td>COROS</td><td>In the app, open the activity and choose the export as FIT. The Training Hub (web) offers the export of multiple activities.</td><td>Single: FIT, GPX, TCX, or KML. The bulk export gives FIT or TCX.</td></tr>
+            <tr><td>Suunto</td><td>In the Suunto app, open the workout, tap the three dots at the top right, and choose <strong>FIT</strong>.</td><td>Without GPS data there is no GPX export, FIT always works.</td></tr>
+            <tr><td>Polar Flow</td><td>On the web, open the session in the diary and choose the FIT file from the <strong>“Export”</strong> menu at the top right.</td><td>Also GPX, TCX, and CSV. For large sessions, choose the ZIP variant, FITcomparer unpacks it.</td></tr>
+            <tr><td>Hammerhead Karoo</td><td>In the dashboard under “Rides”, click the three dots of the ride and choose <strong>“Download FIT”</strong>. Or copy the file from the device’s “FitFiles” folder via cable.</td><td>FIT</td></tr>
+            <tr><td>Zwift</td><td>On zwift.com, download the FIT file from the activity. Locally, they are stored under <code>Documents\Zwift\Activities</code>.</td><td>FIT</td></tr>
+            <tr><td>Apple Watch</td><td>Apple offers no export of its own. An extra app like HealthFit converts workouts into FIT files.</td><td>The data comes from Apple Health, not from a sports device, so device values may differ.</td></tr>
+            <tr><td>Komoot and similar</td><td>Usually only a GPX export.</td><td>Only calculated values, no device values.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <p><strong>Status of this information:</strong> The menu names come from the providers’ help pages, I did not click through every platform myself. They change occasionally. By “device values”, FITcomparer means the summary that the device writes into the file. Whether the platform shows the same numbers depends on the platform. Garmin Connect is the reference that was used for checking.</p>
+      </div>
+    </section>
+
+    <section class="doc" id="bedienung">
+      <h2>Step-by-step usage</h2>
+
+      <h3 id="dateien">Load, name, and color files</h3>
+      <p>Each activity has its own card. You can use up to six cards in total, and at least two always remain.</p>
+      <figure class="shot">
+        <img src="../docs/img/en/files.webp" width="1800" height="799" loading="lazy" alt="Two file cards with display name, color dot, file selection, and start offset, marked with the numbers 1 to 5">
+        <figcaption>The file cards.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li><strong>Display name.</strong> Here you can rename the activity freely, for example “Tobi 2025” instead of the file name. <strong>The name carries through everywhere</strong>: into the tables, the graph, the map legend, and the exported video.</li>
+        <li><strong>Color.</strong> Click the dot and pick the color. It applies to the map, graph, table headers, and video. The color stays with the file, even if you remove another card.</li>
+        <li><strong>Select file.</strong> Click the area or <strong>simply drop the file onto it</strong>. FIT, GPX, the ZIP from Garmin Connect, or a .gz file.</li>
+        <li><strong>Start offset.</strong> Appears from the second card on, see below.</li>
+        <li><strong>+ File</strong> adds another activity. With the × on a card, you remove it again.</li>
+      </ol>
+
+      <h3 id="offset">Start offset: compensate for different start times</h3>
+      <p>In races, events, or group rides, the recordings rarely begin at the same moment: One watch starts earlier, another later. Without compensation, one activity would run away from the other during playback.</p>
+      <p>With the <strong>Start offset</strong>, you shift an activity relative to <strong>File 1</strong>, which serves as the reference and stays unchanged. The value states how much later (positive) or earlier (negative) the file begins on the shared time axis.</p>
+      <div class="note">
+        <p><strong>Example:</strong> File 1 started at the starting gun. Your bike computer in File 2 was only switched on 45 seconds later. Set the offset for File 2 to <code>00:45</code>, and both start at the starting line at the same time. Use a distinctive spot as a guide, such as the first intersection or the first climb, and shift until the markers on the map stay together.</p>
+      </div>
+      <p>The slider covers ±10 minutes. In the text field next to it, you can set values more precisely and also further out: <code>mm:ss</code> or just seconds, negative with a leading minus, for example <code>-02:30</code>.</p>
+      <figure class="shot shot-medium">
+        <img src="../docs/img/en/tooltip-offset.webp" width="1328" height="1262" loading="lazy" alt="Tooltip for the start offset on a file card">
+        <figcaption>The explanation appears when you touch the <span class="help-glyph-inline" aria-hidden="true">?</span> next to the offset.</figcaption>
+      </figure>
+
+      <h3 id="tabellen">The comparison tables</h3>
+      <p>The “Entire activity” panel shows the metrics of all files side by side: Rows are the measurements, columns are the files. There are two tables. With the arrow at the top right, you collapse the whole panel, and the lower table can also be collapsed on its own.</p>
+      <figure class="shot">
+        <img src="../docs/img/en/tables.webp" width="1800" height="1810" loading="lazy" alt="Device values and calculated values compared, with deviation badges">
+        <figcaption>Device values on top, recalculated values below.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li><strong>Device values from the file.</strong> Your device wrote these numbers into the file itself at the end of the activity. They match exactly what Garmin Connect shows. This table exists only for FIT files.</li>
+        <li><strong>Calculated from the data points.</strong> The same metrics, recalculated from the file’s per-second values. This exact calculation is also behind the tables for time and distance windows, which exist for sections.</li>
+        <li><strong>Deviation.</strong> The small badge shows how far the calculated value deviates from the device value. Orange means more than 2%. Why deviations occur is explained in the <a href="#messmethodik">measurement methodology</a> section.</li>
+      </ol>
+
+      <h3 id="playback">Playback</h3>
+      <figure class="shot">
+        <img src="../docs/img/en/playback.webp" width="1800" height="325" loading="lazy" alt="Playback bar with skip buttons, speed, time field, and timeline">
+        <figcaption>The playback bar.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li><strong>Skip buttons, play, and reset.</strong> − 1 min, − 10 s, + 10 s, and + 1 min jump in time. If playback is running, it keeps running afterwards. ↺ jumps to the start.</li>
+        <li><strong>Speed</strong> from 0.5× to 500×. It determines how fast the markers move on the map.</li>
+        <li><strong>Time field.</strong> Type a time, for example <code>12:34</code>, <code>1:30:00</code>, or just seconds, and confirm with Enter.</li>
+        <li><strong>Timeline.</strong> Drag the slider to jump to any point.</li>
+      </ol>
+
+      <h3 id="karte">Map and distance window</h3>
+      <figure class="shot">
+        <img src="../docs/img/en/map.webp" width="1800" height="952" loading="lazy" alt="Map with route, position markers, two click points for the distance window, legend, and drag handle">
+        <figcaption>The map with markers and a distance window dragged out.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li><strong>Markers.</strong> They show where each activity is at the current time.</li>
+        <li><strong>Distance window.</strong> Click twice on the track (within about 30 pixels of the line), and a route section is created. The next click starts a new window.</li>
+        <li><strong>Legend.</strong> It sits inside the map and stays at the top right at any map size. This exact legend also appears in the video.</li>
+        <li><strong>Drag handle.</strong> Drag it down or up to change the height of the map (also with the arrow keys).</li>
+        <li><strong>Save as MP4</strong>, see <a href="#video">below</a>.</li>
+      </ol>
+      <p>The distance window compares <strong>the same stretch of route</strong> for each file, even if the activities rode it at very different times. This is the big advantage over the plain time window.</p>
+      <figure class="shot">
+        <img src="../docs/img/en/distance.webp" width="1800" height="1128" loading="lazy" alt="Distance window panel with section per file and metrics">
+        <figcaption>The “Distance window” panel.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li>The measured kilometers per file between your two clicks.</li>
+        <li>The metrics of exactly this section for each file.</li>
+      </ol>
+
+      <h3 id="graph">Graph and time window</h3>
+      <figure class="shot">
+        <img src="../docs/img/en/graph.webp" width="1800" height="2305" loading="lazy" alt="Graph with a time window dragged out, playhead, and the Time window panel">
+        <figcaption>The graph with a time window dragged out.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li><strong>Metric.</strong> Choose whether HR, power, speed, distance, cadence, or elevation is shown over time.</li>
+        <li><strong>Time window.</strong> Drag across the graph with the mouse to mark a section.</li>
+        <li><strong>Playhead.</strong> The yellow line is the current playback position.</li>
+        <li><strong>Time window panel.</strong> It shows the metrics of the section for each file. You can type the start and end exactly below, as a time or as kilometers per file.</li>
+      </ol>
+      <p>Directly above the panel are “Current point” (the values at the playhead position) and “Hover” (the values under the mouse pointer in the graph).</p>
+
+      <h3 id="video">Save as MP4 video</h3>
+      <p>The “Save as MP4” button above the map renders the map with all activities and their moving markers over the entire activity as a video. This happens in your browser, and nothing is uploaded.</p>
+      <div class="shot-pair">
+        <figure class="shot">
+          <img src="../docs/img/en/export-dialog.webp" width="1056" height="2616" loading="lazy" alt="Save as MP4 dialog with speed, format, resolution, section preview, and Start export">
+          <figcaption>The export dialog in portrait format.</figcaption>
+        </figure>
+        <figure class="shot shot-frame">
+          <img src="../docs/img/en/export-frame.webp" width="720" height="1280" loading="lazy" alt="A frame from an exported 9:16 video with both routes and markers">
+          <figcaption>A frame from the finished 9:16 video.</figcaption>
+        </figure>
+      </div>
+      <ol class="callouts">
+        <li><strong>Speed.</strong> 60× means: One minute of activity takes one second in the video. The default is the lowest setting at which the video is at most ten minutes long.</li>
+        <li><strong>Format.</strong> 16:9, 4:3, and 1:1, as well as the portrait formats 4:5 and 9:16 (stories, reels).</li>
+        <li><strong>Resolution.</strong> Measured on the short side: Preview (360), HD (720), or Full HD (1080). The pixel count is in parentheses.</li>
+        <li><strong>Section.</strong> The preview shows what will be visible in the video. Drag to move, zoom with the mouse wheel, the slider, or two fingers. “All tracks” fits everything into the frame.</li>
+        <li><strong>Current map section</strong> takes over the area you have currently set in the large map.</li>
+        <li><strong>Start export.</strong> Below the fields you see the length and the maximum possible size of the file. With “Cancel”, you can stop at any time, and nothing is saved.</li>
+      </ol>
+      <div class="note">
+        <p><strong>Good to know:</strong> The file names in the legend are exactly the display names you assigned above. For the export you need a current Chrome, Edge, or Firefox browser with video support (WebCodecs) and a file with GPS data. The map tiles are loaded from the internet once for this. At the same settings, Firefox produces larger files than Chrome and Edge.</p>
+      </div>
+
+      <h3 id="mobil">On your phone</h3>
+      <p>FITcomparer also works on a smartphone. The cards are stacked, and the file picker shows all files, so .fit files and ZIPs from the Downloads folder can be selected as well. You scroll wide tables sideways. You open the <span class="help-glyph-inline" aria-hidden="true">?</span> explanations with a tap and close them with a tap elsewhere.</p>
+      <figure class="shot shot-narrow">
+        <img src="../docs/img/en/mobile.webp" width="780" height="3240" loading="lazy" alt="FITcomparer at phone width: file cards stacked and the device table">
+        <figcaption>The view at 390 pixels wide.</figcaption>
+      </figure>
+    </section>
+
+    <section class="doc" id="messmethodik">
+      <h2>Device or calculated? Why the values differ</h2>
+      <p>A FIT file contains two different things:</p>
+      <ul>
+        <li>the <strong>per-second values</strong> (“records”): position, elevation, heart rate, power, and more, once per second.</li>
+        <li>a <strong>summary</strong> (“session”): totals and averages that your device calculated itself at the end of the activity. Garmin Connect and other manufacturers’ apps show these numbers.</li>
+      </ul>
+      <p>FITcomparer shows both separately. The <strong>device values</strong> are the summary and match Garmin Connect. The <strong>calculated values</strong> come from the per-second values. Only they are possible for arbitrary sections, because there is no device summary for a time or distance window. That is why the calculated table deliberately does not match every row down to the decimal place.</p>
+
+      <h3>How big are the deviations?</h3>
+      <p>Measured on four activities (two day tours and two long ultra rides) compared to the device values:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Deviation</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Distance</td><td>±0.0%</td><td>Identical: Both come from the same distance counter.</td></tr>
+            <tr><td>Avg HR</td><td>−0.2 to +0.8%</td><td>Average over the per-second values.</td></tr>
+            <tr><td>Avg Power</td><td>−0.6 to −1.7%</td><td>The device sums power internally at a finer resolution than the per-second values it stores. This cannot be recovered from the stored seconds.</td></tr>
+            <tr><td>Normalized Power</td><td>−0.05 to −0.9%</td><td>Same cause. The formula itself is the standard one (30-second average, fourth power).</td></tr>
+            <tr><td>Avg Cadence</td><td>+0.1 to +1.2%</td><td>As with Garmin, coasting phases at 0 rpm do not count toward the average.</td></tr>
+            <tr><td>Ascent and Descent</td><td>+0.1 to +1.9%</td><td>Elevation is stored to 0.2 m accuracy and is noisy. Without smoothing, the totals would be around 5% too high. That is why it is smoothed over ±5 seconds.</td></tr>
+            <tr><td>Max Speed</td><td>−0.4 to −2.9%</td><td>The same smoothing takes a little height off short peaks.</td></tr>
+            <tr><td>Avg Speed</td><td>0 to −3.5%</td><td>We divide the distance by the <em>elapsed</em> time, Garmin by the <em>timer time</em>. For activities with longer pauses, this makes a difference.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <p><strong>Time and Elapsed Time:</strong> The device table separates the two. “Time” is the timer time (without pauses), “Elapsed Time” is the time from start to end. For an activity with a 31-minute pause, they were 14:33:20 and 15:04:19 in our test.</p>
+      </div>
+      <p>The device value is the reference if you want to compare the number with Garmin Connect. The calculated values are the right choice when you compare <strong>sections</strong> with <strong>sections</strong>, because there all files are calculated in the same way.</p>
+    </section>
+
+    <section class="doc" id="datenschutz">
+      <h2>Privacy and external services</h2>
+      <p><strong>Your activity files never leave your browser.</strong> Reading, calculating, drawing, and even rendering the video all happen locally. The app itself has no upload and no user account, sets no cookies, and contains no analytics scripts.</p>
+      <p>So that the page looks right and works, your browser does load content from other servers, though. These operators see your IP address and the respective request:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Service</th><th>What for</th><th>When</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>OpenStreetMap (tile.openstreetmap.org)</td><td>Map tiles</td><td>continuously while the map is displayed, in the export dialog, and during video export. The operator can thereby see which map section you are viewing.</td></tr>
+            <tr><td>unpkg.com</td><td>Leaflet map library</td><td>when the page loads</td></tr>
+            <tr><td>cdn.jsdelivr.net</td><td>Chart.js charting library</td><td>when the page loads</td></tr>
+            <tr><td>esm.sh</td><td>FIT reader, ZIP extractor, MP4 muxer</td><td>when the page loads, the MP4 muxer only at export</td></tr>
+            <tr><td>Google Fonts</td><td>Fonts</td><td>when the page loads</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="doc" id="faq">
+      <h2>FAQ and troubleshooting</h2>
+      <dl class="faq">
+        <dt>The file won’t load.</dt>
+        <dd>FITcomparer reads FIT, GPX (also as .gz), and ZIP with exactly one activity. TCX is not supported. If there is an error message under the file card, it tells you what the cause is.</dd>
+
+        <dt>“The ZIP contains multiple activities” or “Full export” appears.</dt>
+        <dd>Export the activity individually via the gear icon → “Export File”, or unzip the archive and choose the .fit file you want.</dd>
+
+        <dt>The values differ from Garmin Connect.</dt>
+        <dd>Look at the first table, the “Device values from the file”: They match Garmin Connect. The second table is recalculated and deliberately deviates slightly, see <a href="#messmethodik">measurement methodology</a>.</dd>
+
+        <dt>There is no device values table.</dt>
+        <dd>It appears only if at least one loaded file is a FIT file with a summary. For GPX files, it is missing.</dd>
+
+        <dt>The “Save as MP4” button is gray.</dt>
+        <dd>Either no file with GPS data has been loaded yet, or your browser does not support video export. In that case, use a current Chrome, Edge, or Firefox browser.</dd>
+
+        <dt>The export aborts or is huge.</dt>
+        <dd>Choose a higher speed or a lower resolution, and the video becomes shorter and lighter. The expected size is shown below the fields in the dialog; from about 1.5 GB, the export can no longer be started.</dd>
+
+        <dt>The video plays in the browser but not in the Windows player.</dt>
+        <dd>Re-export it with the current version of FITcomparer. Older exports from Firefox contained a faulty video description, which browsers tolerate but the Windows player does not.</dd>
+
+        <dt>The map stays gray.</dt>
+        <dd>The map tiles come from the internet (OpenStreetMap). Without a connection or with blocked requests, the background stays empty, but the route and markers still appear.</dd>
+
+        <dt>On my phone, I don’t see my file in the picker.</dt>
+        <dd>On touch devices, the picker shows all files. Look in the “Downloads” folder for the ZIP from Garmin Connect. If it was saved in another app, tap the menu in the picker window and choose the right storage location.</dd>
+
+        <dt>The table is too wide on my phone.</dt>
+        <dd>Swipe it sideways. The device table with two files usually fits without scrolling, while the calculated table with the deviation badges is wider.</dd>
+      </dl>
+    </section>
+
+    <section class="doc" id="credits">
+      <h2>Credits and license</h2>
+      <p>FITcomparer is free software under the <a href="https://github.com/tscheipel/FITcomparer/blob/main/LICENSE" rel="noopener">MIT License</a>. You can find the source code on <a href="https://github.com/tscheipel/FITcomparer" rel="noopener">GitHub</a>.</p>
+      <p>FITcomparer builds on these works:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Component</th><th>Purpose</th><th>License</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a></td><td>Map data, © OpenStreetMap contributors</td><td>ODbL</td></tr>
+            <tr><td><a href="https://leafletjs.com" rel="noopener">Leaflet</a></td><td>interactive map</td><td>BSD-2-Clause</td></tr>
+            <tr><td><a href="https://www.chartjs.org" rel="noopener">Chart.js</a></td><td>Graph</td><td>MIT</td></tr>
+            <tr><td><a href="https://github.com/jimmykane/fit-parser" rel="noopener">fit-file-parser</a></td><td>Reading FIT files</td><td>MIT</td></tr>
+            <tr><td><a href="https://101arrowz.github.io/fflate" rel="noopener">fflate</a></td><td>Unzipping ZIP files</td><td>MIT</td></tr>
+            <tr><td><a href="https://github.com/Vanilagy/mp4-muxer" rel="noopener">mp4-muxer</a></td><td>Writing MP4 files</td><td>MIT</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Garmin and Garmin Connect are trademarks of Garmin Ltd. or its subsidiaries. FITcomparer is not affiliated with Garmin. The screenshot of the Garmin Connect interface serves solely to explain the export.</p>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p class="site-footer-main">© 2026 Tobias Scheipel · <a href="https://scheipel.com" rel="noopener">scheipel.com</a></p>
+    <p class="site-footer-links">
+      <a href="./help.html">Guide</a> ·
+      <a href="https://github.com/tscheipel/FITcomparer" rel="noopener">GitHub</a> ·
+      <a href="https://github.com/tscheipel/FITcomparer/blob/main/LICENSE" rel="noopener">MIT License</a>
+    </p>
+    <p class="site-footer-credits">
+      Map data © <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap contributors</a> ·
+      <a href="https://leafletjs.com" rel="noopener">Leaflet</a> ·
+      <a href="https://www.chartjs.org" rel="noopener">Chart.js</a> ·
+      <a href="https://github.com/jimmykane/fit-parser" rel="noopener">fit-file-parser</a> ·
+      <a href="https://101arrowz.github.io/fflate" rel="noopener">fflate</a> ·
+      <a href="https://github.com/Vanilagy/mp4-muxer" rel="noopener">mp4-muxer</a>
+    </p>
+  </footer>
+</body>
+</html>
