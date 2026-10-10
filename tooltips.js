@@ -71,9 +71,18 @@ const HELP_DE = {
       'Zeigt, wie weit die Marker gerade auseinander sind, sortiert nach ihrer Position auf der Strecke: der Vorderste links. Zwischen zwei Markern steht der Abstand in Kilometern und in Zeit.',
       'Die Kilometer werden entlang der Referenzstrecke gemessen, nicht über die Luftlinie und nicht über die Distanzzähler der Geräte, die auf langen Strecken einige hundert Meter auseinanderlaufen. Jede Position wird dazu auf die Linie der Referenzspur gelegt.',
       'Die Zeit ist der Rennabstand: wie lange es her ist, dass der Vordere an der Stelle war, an der der Hintere gerade ist.',
-      'Gezählt wird ab der Startlinie (weißer Ring auf der Karte). Sie wird automatisch dort gesetzt, wo kurz nach dem Start alle Spuren eng beieinander liegen. Mit „Startlinie wählen“ und einem Klick auf die Referenzspur legst du sie selbst fest.',
-      '„An Startlinie ausrichten“ setzt die Start-Offsets so, dass alle Aktivitäten im selben Moment über die Startlinie fahren.',
+      'Unter „Referenz“ wählst du, auf welcher Spur gemessen wird. Gezählt wird ab der Startlinie, siehe das ? neben den Startlinien-Knöpfen.',
+      'Ein karierter Punkt ist im Ziel (am Ende der Referenzstrecke). Der Abstand zum Nächsten dahinter bleibt dann auf dem Stand, den er bei der Ankunft hatte.',
       'Ein blasser Punkt am Ende ist eine Aktivität, die noch vor der Startlinie oder länger als eine Minute abseits der Referenzstrecke ist.',
+    ],
+  },
+  startLine: {
+    title: 'Startlinie',
+    body: [
+      'Ab der Startlinie werden die Abstände gezählt. Auf der Karte ist sie ein weißer, gestrichelter Ring.',
+      'Sie wird automatisch an die erste Stelle kurz nach dem Start gesetzt, an der alle Spuren eng beieinander liegen. Unter der Abstandszeile steht, bei welchem Kilometer der Referenz sie liegt.',
+      '„Startlinie wählen“ und danach ein Klick auf die Referenzspur legt sie selbst fest, Esc bricht ab. „Automatisch“ nimmt wieder die erkannte Stelle.',
+      '„An Startlinie ausrichten“ setzt die Start-Offsets so, dass alle Aktivitäten im selben Moment über die Startlinie fahren. Das ersetzt das Ausprobieren von Hand.',
     ],
   },
   map: {
@@ -216,9 +225,18 @@ const HELP_EN = {
       'Shows how far apart the markers are right now, ordered by their position on the course: the leader on the left. Between two markers you see the gap in kilometres and in time.',
       'The kilometres are measured along the reference course, not as the crow flies and not with the devices’ distance counters, which drift apart by a few hundred metres on long rides. Each position is placed onto the line of the reference track.',
       'The time is the race gap: how long ago the one in front was at the spot where the one behind is now.',
-      'Counting starts at the start line (white ring on the map). It is set automatically where all tracks run close together shortly after the start. With “Pick start line” and a click on the reference track you set it yourself.',
-      '“Align to start line” sets the start offsets so that all activities cross the start line at the same moment.',
+      'Under “Reference” you choose which track is measured along. Counting starts at the start line, see the ? next to the start line buttons.',
+      'A checkered dot has finished (reached the end of the reference course). The gap to the next one behind then stays at its value on arrival.',
       'A faded dot at the end is an activity that is still before the start line or has been off the reference course for more than a minute.',
+    ],
+  },
+  startLine: {
+    title: 'Start line',
+    body: [
+      'The gaps are counted from the start line. On the map it is a white dashed ring.',
+      'It is set automatically at the first spot shortly after the start where all tracks run close together. The line below the gaps tells you at which kilometre of the reference it lies.',
+      '“Pick start line” followed by a click on the reference track sets it yourself; Esc cancels. “Automatic” goes back to the detected spot.',
+      '“Align to start line” sets the start offsets so that all activities cross the start line at the same moment. This replaces adjusting them by hand.',
     ],
   },
   map: {

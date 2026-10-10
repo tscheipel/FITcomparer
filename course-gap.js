@@ -26,6 +26,8 @@ const MATCH_LOST_STRIDE = 10;
 const CROSS_MAX_DISTANCE_M = 50;
 // Laenger neben der Strecke: kein Abstand mehr, statt einen alten Wert stehen zu lassen.
 const OFF_ROUTE_HOLD_SECONDS = 60;
+// So nah am Ende der Referenzstrecke gilt eine Spur als im Ziel.
+const FINISH_TOLERANCE_KM = 0.3;
 
 const AUTO_START_MIN_KM = 0.2;
 const AUTO_START_STEP_KM = 0.025;
@@ -275,14 +277,23 @@ export function matchTrack(course, mapSamples, start) {
     offSince[k] = offStart;
   }
 
-  return { crossTime: t[0], t, km, kmMax, offSince, offShare: offCount / count };
+  const match = { crossTime: t[0], t, km, kmMax, offSince, offShare: offCount / count, finalKm: runningMax, finishTime: null };
+  // Im Ziel: ab dem ersten Erreichen des Streckenendes bleibt die Spur dort stehen, auch
+  // wenn die Aufzeichnung danach weiterlaeuft (Ausrollen, Heimweg).
+  if (runningMax >= course.km[course.km.length - 1] - FINISH_TOLERANCE_KM) {
+    match.finishTime = timeWhenAtKm(match, runningMax - 0.01);
+  }
+  return match;
 }
 
-/** Strecken-km einer Spur zu ihrer eigenen Zeit; null vor der Startlinie oder lange abseits. */
+/** Strecken-km einer Spur zu ihrer eigenen Zeit; null vor der Startlinie oder lange abseits, im Ziel der End-km. */
 export function courseKmAt(match, time) {
   const { t, km, offSince } = match;
   if (!Number.isFinite(time) || time < t[0]) {
     return null;
+  }
+  if (match.finishTime !== null && time >= match.finishTime) {
+    return match.finalKm;
   }
 
   const last = t.length - 1;

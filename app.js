@@ -709,7 +709,8 @@ function alignOffsetsToStartLine() {
 // Marker nach Strecken-km sortiert, der Vorderste zuerst, dazwischen der Abstand in km
 // und Zeit. Die Zeit ist der Rennabstand: wie lange es her ist, dass der Vordere an der
 // Stelle war, an der der Hintere jetzt ist. Marker ohne Strecken-km (vor der Startlinie,
-// laenger abseits) kommen blass ans Ende. Dieselbe Liste zeichnet auch das Video.
+// laenger abseits) kommen blass ans Ende. Ist der Vordere eines Paares im Ziel, bleibt
+// der Abstand auf dem Stand, als er ankam. Dieselbe Liste zeichnet auch das Video.
 function buildGapItems(overallTime) {
   const { matches } = state.gap;
   if (matches.size < 2) {
@@ -717,31 +718,51 @@ function buildGapItems(overallTime) {
   }
 
   const origin = getTimelineOrigin();
+  const toOverall = (slot, ownTime) => ownTime - origin + slot.offsetSeconds;
   const placed = [];
   const missing = [];
   for (const slot of getGapSlots()) {
     const match = matches.get(slot.id);
-    const km = match ? courseKmAt(match, getSlotTime(slot, overallTime)) : null;
+    const ownTime = getSlotTime(slot, overallTime);
+    const km = match ? courseKmAt(match, ownTime) : null;
     if (km === null) {
       missing.push(slot);
     } else {
-      placed.push({ slot, match, km });
+      const finished = match.finishTime !== null && ownTime >= match.finishTime;
+      placed.push({ slot, match, km, finishedAt: finished ? toOverall(slot, match.finishTime) : Infinity });
     }
   }
-  placed.sort((a, b) => b.km - a.km);
+  // Wer im Ziel ist, steht vorne, in der Reihenfolge der Ankunft; dahinter nach km.
+  placed.sort((a, b) => a.finishedAt - b.finishedAt || b.km - a.km);
+
+  const gapBetween = (front, backKm, time) => {
+    const frontTime = timeWhenAtKm(front.match, backKm);
+    return formatGap(front.km - backKm, frontTime === null ? null : time - toOverall(front.slot, frontTime));
+  };
 
   const items = [];
   placed.forEach((entry, index) => {
     if (index > 0) {
       const front = placed[index - 1];
-      const frontTime = timeWhenAtKm(front.match, entry.km);
-      const seconds = frontTime === null ? null : overallTime - (frontTime - origin + front.slot.offsetSeconds);
-      items.push({ type: 'gap', text: formatGap(front.km - entry.km, seconds) });
+      let text = gapBetween(front, entry.km, overallTime);
+      if (Number.isFinite(front.finishedAt)) {
+        const backKm = courseKmAt(entry.match, getSlotTime(entry.slot, front.finishedAt));
+        if (backKm !== null) {
+          text = gapBetween(front, backKm, front.finishedAt);
+        }
+      }
+      items.push({ type: 'gap', text });
     }
-    items.push({ type: 'marker', color: entry.slot.color, name: getSlotDisplayName(entry.slot), missing: false });
+    items.push({
+      type: 'marker',
+      color: entry.slot.color,
+      name: getSlotDisplayName(entry.slot),
+      missing: false,
+      finished: Number.isFinite(entry.finishedAt),
+    });
   });
   for (const slot of missing) {
-    items.push({ type: 'marker', color: slot.color, name: getSlotDisplayName(slot), missing: true });
+    items.push({ type: 'marker', color: slot.color, name: getSlotDisplayName(slot), missing: true, finished: false });
   }
   return items;
 }
@@ -755,8 +776,9 @@ function renderGapBar() {
   const html = (buildGapItems(state.currentTime) ?? [])
     .map((item) => (item.type === 'gap'
       ? `<span class="gap-link"><span class="gap-label">${escapeHtml(item.text)}</span></span>`
-      : `<span class="gap-marker${item.missing ? ' missing' : ''}" style="--marker-color: ${item.color}" title="${
-        escapeHtml(item.missing ? `${item.name}: ${t('gap.missing')}` : item.name)}"></span>`))
+      : `<span class="gap-marker${item.missing ? ' missing' : ''}${item.finished ? ' finished' : ''}" style="--marker-color: ${
+        item.color}" title="${escapeHtml(item.missing ? `${item.name}: ${t('gap.missing')}`
+        : item.finished ? `${item.name}: ${t('gap.finished')}` : item.name)}"></span>`))
     .join('');
   // Laeuft jeden Frame; das DOM nur anfassen, wenn sich etwas geaendert hat.
   if (html !== state.gap.barHtml) {

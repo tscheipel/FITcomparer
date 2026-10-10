@@ -276,18 +276,22 @@
       </ol>
 
       <h3 id="abstand">Gap between the markers</h3>
-      <p>Below the timeline you see how far apart the markers are right now, for example <code>○— 0.55 km / 0:43 —○— 3.09 km / 5:42 —○</code>. The markers are ordered by their position on the course, the leader on the left. The line appears as soon as at least two activities with GPS are loaded.</p>
-      <ul>
-        <li><strong>Kilometres</strong> are measured along the course: each position is placed onto the line of the <strong>reference</strong> (chosen left of the buttons, file 1 by default). The devices’ distance counters are not good enough for this, they drift apart by a few hundred metres over 200 km.</li>
-        <li><strong>Time</strong> is the race gap: how long ago the one in front was at the spot where the one behind is now. Once everyone has finished, it shows the gap at the finish.</li>
-        <li><strong>Start line.</strong> Counting starts at a common start line, shown on the map as a white dashed ring. It is set automatically at the first spot shortly after the start where all tracks run close together. With “Pick start line” and a click on the reference track you set it yourself; “Automatic” goes back to the detected spot.</li>
-        <li><strong>Align to start line</strong> sets the <a href="#offset">start offsets</a> so that all activities cross the start line at the same moment. This replaces adjusting them by hand.</li>
-        <li>A <strong>faded marker</strong> at the end is still before the start line or has been off the reference course for more than a minute, for example on a detour or where the routes split.</li>
-      </ul>
+      <p>Below the timeline you see how far apart the markers are right now. The block appears as soon as at least two activities with GPS are loaded.</p>
+      <figure class="shot">
+        <img src="../docs/img/en/gap.webp" width="1800" height="233" loading="lazy" alt="Gap block with the gap line, the reference selection, the Pick start line and Align to start line buttons, and the note about the start line">
+        <figcaption>The gap block below the timeline.</figcaption>
+      </figure>
+      <ol class="callouts">
+        <li><strong>Gap line.</strong> The markers are ordered by their position on the course, the leader on the left. Between them you see the gap in <strong>kilometres</strong>, measured along the course, and in <strong>time</strong>. The time is the race gap: how long ago the one in front was at the spot where the one behind is now. A <strong>checkered</strong> marker has finished; the gap to the next one behind then stays at its value on arrival. A <strong>faded</strong> marker at the end is still before the start line or has been off the reference course for more than a minute, for example on a detour or where the routes split.</li>
+        <li><strong>Reference.</strong> Distances are measured along the line of this track, file 1 by default. Each position is placed onto this line. The devices’ distance counters are not good enough for this, they drift apart by a few hundred metres over 200 km.</li>
+        <li><strong>Pick start line.</strong> Counting starts at a common start line, shown on the map as a white dashed ring. It is set automatically at the first spot shortly after the start where all tracks run close together. Click the button, then click on the reference track to put it there; Esc cancels. Afterwards “Automatic” appears, which goes back to the detected spot.</li>
+        <li><strong>Align to start line</strong> sets the <a href="#offset">start offsets</a> so that all activities cross the start line at the same moment. This replaces adjusting them by hand. The <span class="help-glyph-inline" aria-hidden="true">?</span> next to it explains the start line.</li>
+        <li><strong>Note.</strong> It tells you at which kilometre of the reference the start line lies, or what is missing if none was found.</li>
+      </ol>
 
       <h3 id="karte">Map and distance window</h3>
       <figure class="shot">
-        <img src="../docs/img/en/map.webp" width="1800" height="952" loading="lazy" alt="Map with route, position markers, two click points for the distance window, legend, and drag handle">
+        <img src="../docs/img/en/map.webp" width="1800" height="952" loading="lazy" alt="Map with route, position markers, two click points for the distance window, legend, drag handle, and start line">
         <figcaption>The map with markers and a distance window dragged out.</figcaption>
       </figure>
       <ol class="callouts">
@@ -296,6 +300,7 @@
         <li><strong>Legend.</strong> It sits inside the map and stays at the top right at any map size. This exact legend also appears in the video.</li>
         <li><strong>Drag handle.</strong> Drag it down or up to change the height of the map (also with the arrow keys).</li>
         <li><strong>Save as MP4</strong>, see <a href="#video">below</a>.</li>
+        <li><strong>Start line.</strong> The white dashed ring marks where the <a href="#abstand">gap</a> is counted from.</li>
       </ol>
       <p>The distance window compares <strong>the same stretch of route</strong> for each file, even if the activities rode it at very different times. This is the big advantage over the plain time window.</p>
       <figure class="shot">
@@ -324,11 +329,11 @@
       <p>The “Save as MP4” button above the map renders the map with all activities and their moving markers over the entire activity as a video. This happens in your browser, and nothing is uploaded.</p>
       <div class="shot-pair">
         <figure class="shot">
-          <img src="../docs/img/en/export-dialog.webp" width="1056" height="2616" loading="lazy" alt="Save as MP4 dialog with speed, format, resolution, section preview, and Start export">
+          <img src="../docs/img/en/export-dialog.webp" width="1056" height="2688" loading="lazy" alt="Save as MP4 dialog with speed, format, resolution, show gaps, section preview, and Start export">
           <figcaption>The export dialog in portrait format.</figcaption>
         </figure>
         <figure class="shot shot-frame">
-          <img src="../docs/img/en/export-frame.webp" width="720" height="1280" loading="lazy" alt="A frame from an exported 9:16 video with both routes and markers">
+          <img src="../docs/img/en/export-frame.webp" width="720" height="1280" loading="lazy" alt="A frame from an exported 9:16 video with both routes, markers, and the gap line">
           <figcaption>A frame from the finished 9:16 video.</figcaption>
         </figure>
       </div>
@@ -336,12 +341,13 @@
         <li><strong>Speed.</strong> 60× means: One minute of activity takes one second in the video. The default is the lowest setting at which the video is at most ten minutes long.</li>
         <li><strong>Format.</strong> 16:9, 4:3, and 1:1, as well as the portrait formats 4:5 and 9:16 (stories, reels).</li>
         <li><strong>Resolution.</strong> Measured on the short side: Preview (360), HD (720), or Full HD (1080). The pixel count is in parentheses.</li>
+        <li><strong>Show gaps.</strong> Draws the <a href="#abstand">gap line</a> at the bottom of the video. Only available when a start line is set.</li>
         <li><strong>Section.</strong> The preview shows what will be visible in the video. Drag to move, zoom with the mouse wheel, the slider, or two fingers. “All tracks” fits everything into the frame.</li>
         <li><strong>Current map section</strong> takes over the area you have currently set in the large map.</li>
         <li><strong>Start export.</strong> Below the fields you see the length and the maximum possible size of the file. With “Cancel”, you can stop at any time, and nothing is saved.</li>
       </ol>
       <div class="note">
-        <p><strong>Good to know:</strong> The file names in the legend are exactly the display names you assigned above. With “Gaps: show” the <a href="#abstand">gap line</a> also appears at the bottom of the video. For the export you need a current Chrome, Edge, or Firefox browser with video support (WebCodecs) and a file with GPS data. The map tiles are loaded from the internet once for this. At the same settings, Firefox produces larger files than Chrome and Edge.</p>
+        <p><strong>Good to know:</strong> The file names in the legend are exactly the display names you assigned above. For the export you need a current Chrome, Edge, or Firefox browser with video support (WebCodecs) and a file with GPS data. The map tiles are loaded from the internet once for this. At the same settings, Firefox produces larger files than Chrome and Edge.</p>
       </div>
 
       <h3 id="mobil">On your phone</h3>

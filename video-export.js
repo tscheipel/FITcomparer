@@ -592,6 +592,11 @@ function drawGapBar(ctx, items, width, height) {
         ctx.arc(cx, y, radius, 0, Math.PI * 2);
         ctx.fillStyle = '#06131b';
         ctx.fill();
+        if (item.finished) {
+          drawCheckers(ctx, cx, y, radius);
+        }
+        ctx.beginPath();
+        ctx.arc(cx, y, radius, 0, Math.PI * 2);
         ctx.lineWidth = ring;
         ctx.strokeStyle = item.color;
         ctx.stroke();
@@ -601,6 +606,24 @@ function drawGapBar(ctx, items, width, height) {
     }
   });
 
+  ctx.restore();
+}
+
+// Zielflaggen-Karo im Marker-Ring (Aktivitaet im Ziel), 4 x 4 Felder.
+function drawCheckers(ctx, cx, cy, radius) {
+  const cell = radius / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = '#eff5ff';
+  for (let row = 0; row < 4; row++) {
+    for (let column = 0; column < 4; column++) {
+      if ((row + column) % 2 === 0) {
+        ctx.fillRect(cx - radius + column * cell, cy - radius + row * cell, cell, cell);
+      }
+    }
+  }
   ctx.restore();
 }
 

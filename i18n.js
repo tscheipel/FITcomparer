@@ -97,6 +97,7 @@ const DICT = {
     'gap.pickCancel': 'Abbrechen',
     'gap.pick': 'Startlinie wählen',
     'gap.missing': 'vor der Startlinie oder abseits der Referenzstrecke',
+    'gap.finished': 'im Ziel, der Abstand dahinter bleibt auf dem Stand bei der Ankunft',
     'gap.startLine': 'Startlinie',
 
     // Video-Dialog
@@ -211,6 +212,7 @@ const DICT = {
     'gap.pickCancel': 'Cancel',
     'gap.pick': 'Pick start line',
     'gap.missing': 'before the start line or off the reference course',
+    'gap.finished': 'finished, the gap behind stays at its value on arrival',
     'gap.startLine': 'Start line',
 
     'video.reason.webcodecs': 'Video export needs WebCodecs (a current Chrome or Edge).',
