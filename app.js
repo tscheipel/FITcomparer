@@ -149,6 +149,11 @@ const videoExportState = {
 
 const VIDEO_PREVIEW_SHORT_SIDE = 360;
 
+// Bis zu diesem Abstand (Strecke oder Zeit) gelten Marker als gemeinsam fahrende Gruppe.
+// 6 s sind etwa 50 m bei 30 km/h; die Zeit greift auf schnellen Abfahrten, die km bei Pausen.
+const GAP_GROUP_KM = 0.05;
+const GAP_GROUP_SECONDS = 6;
+
 const state = {
   slots: [],
   selectedMetric: 'speed',
@@ -737,21 +742,30 @@ function buildGapItems(overallTime) {
 
   const gapBetween = (front, backKm, time) => {
     const frontTime = timeWhenAtKm(front.match, backKm);
-    return formatGap(front.km - backKm, frontTime === null ? null : time - toOverall(front.slot, frontTime));
+    return { km: front.km - backKm, seconds: frontTime === null ? null : time - toOverall(front.slot, frontTime) };
   };
 
   const items = [];
   placed.forEach((entry, index) => {
+    // Wer knapp hinter dem Vorderen ist, faehrt mit ihm zusammen: die Marker kommen
+    // ohne Abstand als Gruppe hintereinander. Ist der Vordere im Ziel, steht der
+    // eingefrorene Abstand auch bei einem knappen Zieleinlauf da.
+    let grouped = false;
     if (index > 0) {
       const front = placed[index - 1];
-      let text = gapBetween(front, entry.km, overallTime);
-      if (Number.isFinite(front.finishedAt)) {
+      let gap = gapBetween(front, entry.km, overallTime);
+      const frontFinished = Number.isFinite(front.finishedAt);
+      if (frontFinished) {
         const backKm = courseKmAt(entry.match, getSlotTime(entry.slot, front.finishedAt));
         if (backKm !== null) {
-          text = gapBetween(front, backKm, front.finishedAt);
+          gap = gapBetween(front, backKm, front.finishedAt);
         }
       }
-      items.push({ type: 'gap', text });
+      grouped = !frontFinished
+        && (gap.km <= GAP_GROUP_KM || (gap.seconds !== null && gap.seconds <= GAP_GROUP_SECONDS));
+      if (!grouped) {
+        items.push({ type: 'gap', text: formatGap(gap.km, gap.seconds) });
+      }
     }
     items.push({
       type: 'marker',
@@ -759,10 +773,11 @@ function buildGapItems(overallTime) {
       name: getSlotDisplayName(entry.slot),
       missing: false,
       finished: Number.isFinite(entry.finishedAt),
+      grouped,
     });
   });
   for (const slot of missing) {
-    items.push({ type: 'marker', color: slot.color, name: getSlotDisplayName(slot), missing: true, finished: false });
+    items.push({ type: 'marker', color: slot.color, name: getSlotDisplayName(slot), missing: true, finished: false, grouped: false });
   }
   return items;
 }
@@ -776,7 +791,8 @@ function renderGapBar() {
   const html = (buildGapItems(state.currentTime) ?? [])
     .map((item) => (item.type === 'gap'
       ? `<span class="gap-link"><span class="gap-label">${escapeHtml(item.text)}</span></span>`
-      : `<span class="gap-marker${item.missing ? ' missing' : ''}${item.finished ? ' finished' : ''}" style="--marker-color: ${
+      : `<span class="gap-marker${item.missing ? ' missing' : ''}${item.finished ? ' finished' : ''}${
+        item.grouped ? ' grouped' : ''}" style="--marker-color: ${
         item.color}" title="${escapeHtml(item.missing ? `${item.name}: ${t('gap.missing')}`
         : item.finished ? `${item.name}: ${t('gap.finished')}` : item.name)}"></span>`))
     .join('');

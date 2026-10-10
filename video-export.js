@@ -514,6 +514,8 @@ function drawGapBar(ctx, items, width, height) {
   const line = Math.round(14 * unit);
   const textPad = Math.round(6 * unit);
   const missingGap = Math.round(18 * unit);
+  // Gemeinsam fahrende Gruppe: die Ringe ueberlappen um ein Drittel.
+  const groupOverlap = Math.round((2 * (radius + ring)) / 3);
   const padX = Math.round(14 * unit);
   const padY = Math.round(8 * unit);
   const margin = Math.round(16 * unit);
@@ -530,13 +532,14 @@ function drawGapBar(ctx, items, width, height) {
     if (item.type === 'gap') {
       return { item, width: 2 * line + 2 * textPad + ctx.measureText(item.text).width };
     }
-    const lead = item.missing && index > 0 && !items[index - 1].missing ? missingGap : 0;
+    const lead = item.missing && index > 0 && !items[index - 1].missing ? missingGap
+      : item.grouped ? -groupOverlap : 0;
     return { item, lead, width: lead + 2 * (radius + ring) };
   });
 
   const groups = [];
   for (const piece of pieces) {
-    if (piece.item.type === 'gap' || !groups.length || (piece.lead && groups.at(-1).at(-1).item.type === 'marker')) {
+    if (piece.item.type === 'gap' || !groups.length || (piece.lead > 0 && groups.at(-1).at(-1).item.type === 'marker')) {
       groups.push([piece]);
     } else {
       groups.at(-1).push(piece);
@@ -588,6 +591,13 @@ function drawGapBar(ctx, items, width, height) {
       } else {
         const cx = x + piece.lead + radius + ring;
         ctx.globalAlpha = item.missing ? 0.4 : 1;
+        if (item.grouped) {
+          // Dunkler Rand trennt den Ring vom ueberdeckten Vordermann.
+          ctx.beginPath();
+          ctx.arc(cx, y, radius + ring + Math.max(1.5, 2 * unit), 0, Math.PI * 2);
+          ctx.fillStyle = 'rgb(8, 16, 28)';
+          ctx.fill();
+        }
         ctx.beginPath();
         ctx.arc(cx, y, radius, 0, Math.PI * 2);
         ctx.fillStyle = '#06131b';

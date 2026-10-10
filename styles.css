@@ -611,6 +611,17 @@ select {
   opacity: 0.4;
 }
 
+/* Gemeinsam fahrende Gruppe: Ringe ueberlappen, der Vorderste links. Der dunkle Rand
+   trennt die Ringe voneinander. */
+.gap-marker.grouped {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px #081120;
+}
+
+.gap-marker:has(+ .gap-marker.grouped) {
+  box-shadow: 0 0 0 2px #081120;
+}
+
 /* Im Ziel: Zielflaggen-Karo im Ring. */
 .gap-marker.finished {
   background: repeating-conic-gradient(#eff5ff 0 25%, #06131b 0 50%) 50% / 6px 6px;
