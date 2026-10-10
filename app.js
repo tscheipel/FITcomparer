@@ -23,6 +23,14 @@ import {
   viewFromLatLngBounds,
   zoomView,
 } from './video-export.js?v=14';
+import {
+  buildCourse,
+  courseKmAt,
+  findAutoStart,
+  matchTrack,
+  snapToCourse,
+  timeWhenAtKm,
+} from './course-gap.js?v=14';
 
 const METRICS = [
   { key: 'heartRate', label: t('metric.hr'), unit: 'bpm', color: '#ff9f5c' },
@@ -156,6 +164,19 @@ const state = {
   layers: {
     distanceStartMarker: null,
     distanceEndMarker: null,
+    startLine: null,
+  },
+  // Abstand der Marker entlang der Strecke (course-gap.js). manualStart ist der per
+  // Klick gewaehlte Punkt; ohne ihn wird die Startlinie automatisch gesucht.
+  gap: {
+    refSlotId: null,
+    manualStart: null,
+    course: null,
+    start: null,
+    matches: new Map(),
+    status: 'tooFew',
+    picking: false,
+    barHtml: '',
   },
 };
 
@@ -174,6 +195,7 @@ const elements = {
   videoSpeed: document.getElementById('videoSpeed'),
   videoAspect: document.getElementById('videoAspect'),
   videoQuality: document.getElementById('videoQuality'),
+  videoGaps: document.getElementById('videoGaps'),
   videoPreview: document.getElementById('videoPreview'),
   videoZoom: document.getElementById('videoZoom'),
   videoViewAuto: document.getElementById('videoViewAuto'),
@@ -198,6 +220,13 @@ const elements = {
   skipForward10: document.getElementById('skipForward10'),
   skipForward60: document.getElementById('skipForward60'),
   durationLabel: document.getElementById('durationLabel'),
+  gapPanel: document.getElementById('gapPanel'),
+  gapReference: document.getElementById('gapReference'),
+  gapPickStart: document.getElementById('gapPickStart'),
+  gapAutoStart: document.getElementById('gapAutoStart'),
+  gapAlign: document.getElementById('gapAlign'),
+  gapBar: document.getElementById('gapBar'),
+  gapHint: document.getElementById('gapHint'),
   metricSwitcher: document.getElementById('metricSwitcher'),
   comparisonPanel: document.getElementById('comparisonPanel'),
   deviceComparison: document.getElementById('deviceComparison'),
@@ -248,6 +277,7 @@ function init() {
   initChart();
   bindEvents();
   bindSelectionEditorEvents();
+  bindGapEvents();
   initVideoExport();
 
   for (let index = 0; index < MIN_SLOTS; index++) {
@@ -336,6 +366,7 @@ function applySlotColor(slot, color) {
     state.chart.update('none');
   }
 
+  renderGapBar();
   // Spaltenkoepfe aller Tabellen.
   refreshActivityComparison();
   refreshCurrentPointInspector();
@@ -360,6 +391,7 @@ function removeSlot(slot) {
   state.slots.splice(getSlotIndex(slot), 1);
   clearDistanceSelectionWindow();
   syncSlotChrome();
+  recomputeGapCourse();
   recomputeTimeline();
   fitMapBounds();
 }
@@ -469,6 +501,7 @@ function syncSlotChrome() {
   });
 
   elements.addFile.disabled = state.slots.length >= MAX_SLOTS;
+  syncGapReferenceOptions();
   refreshActivityComparison();
   updateVideoButton();
 }
@@ -541,6 +574,218 @@ function bindSelectionEditorEvents() {
   }
 }
 
+// ------------------------------ Abstand zwischen den Markern ------------------------------
+
+function getGapSlots() {
+  return getLoadedSlots().filter((slot) => slot.track.mapSamples.length >= 2);
+}
+
+function bindGapEvents() {
+  elements.gapReference.addEventListener('change', () => {
+    state.gap.refSlotId = Number(elements.gapReference.value);
+    recomputeGapCourse();
+    updateVisuals();
+  });
+  elements.gapPickStart.addEventListener('click', () => setStartLinePicking(!state.gap.picking));
+  elements.gapAutoStart.addEventListener('click', () => {
+    state.gap.manualStart = null;
+    setStartLinePicking(false);
+    recomputeGapCourse();
+    updateVisuals();
+  });
+  elements.gapAlign.addEventListener('click', alignOffsetsToStartLine);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && state.gap.picking) {
+      setStartLinePicking(false);
+    }
+  });
+}
+
+// Laeuft nur, wenn sich Dateien, Referenz oder Startlinie aendern. Offsets spielen
+// hier keine Rolle: jede Spur wird in ihrer eigenen Zeit auf die Strecke abgebildet.
+function recomputeGapCourse() {
+  const gap = state.gap;
+  const slots = getGapSlots();
+  const refSlot = slots.find((slot) => slot.id === gap.refSlotId) ?? slots[0] ?? null;
+  gap.refSlotId = refSlot?.id ?? null;
+  gap.course = null;
+  gap.start = null;
+  gap.matches = new Map();
+
+  if (slots.length < 2) {
+    gap.status = 'tooFew';
+    gap.picking = false;
+  } else {
+    gap.course = buildCourse(refSlot.track.mapSamples);
+    if (gap.course) {
+      gap.start = gap.manualStart
+        ? snapToCourse(gap.course, gap.manualStart.lat, gap.manualStart.lon)
+        : findAutoStart(gap.course, slots.filter((slot) => slot !== refSlot).map((slot) => slot.track.mapSamples));
+    }
+    if (gap.start) {
+      for (const slot of slots) {
+        const match = matchTrack(gap.course, slot.track.mapSamples, gap.start);
+        if (match) {
+          gap.matches.set(slot.id, match);
+        }
+      }
+    }
+    gap.status = !gap.start ? 'noStart' : gap.matches.size < 2 ? 'noCross' : 'ok';
+  }
+
+  syncGapReferenceOptions();
+  renderGapControls();
+  renderGapBar();
+}
+
+function syncGapReferenceOptions() {
+  elements.gapReference.innerHTML = getGapSlots()
+    .map((slot) => `<option value="${slot.id}">${escapeHtml(getSlotDisplayName(slot))}</option>`)
+    .join('');
+  elements.gapReference.value = String(state.gap.refSlotId ?? '');
+}
+
+function renderGapControls() {
+  const gap = state.gap;
+  elements.gapPanel.classList.toggle('hidden', gap.status === 'tooFew');
+  elements.gapAlign.disabled = gap.matches.size < 2;
+  elements.gapAutoStart.classList.toggle('hidden', !gap.manualStart);
+  elements.gapPickStart.textContent = gap.picking ? t('gap.pickCancel') : t('gap.pick');
+  elements.mapFrame.classList.toggle('picking-start', gap.picking);
+
+  let hint = '';
+  if (gap.picking) {
+    hint = t('gap.picking');
+  } else if (gap.status === 'noStart') {
+    hint = t('gap.noStart');
+  } else if (gap.status === 'noCross') {
+    hint = t('gap.noCross');
+  } else if (gap.status === 'ok') {
+    hint = t(gap.manualStart ? 'gap.manual' : 'gap.auto', { km: formatNumber(gap.start.km, 2) });
+  }
+  elements.gapHint.textContent = hint;
+}
+
+function setStartLinePicking(picking) {
+  state.gap.picking = picking;
+  renderGapControls();
+}
+
+function handleStartLinePick(event) {
+  const refSlot = state.slots.find((slot) => slot.id === state.gap.refSlotId);
+  const nearest = refSlot?.track ? findNearestMapSample(refSlot.track, event.latlng) : null;
+  if (!nearest || nearest.pixelDistance > 30) {
+    return;
+  }
+
+  state.gap.manualStart = { lat: nearest.sample.lat, lon: nearest.sample.lon };
+  setStartLinePicking(false);
+  recomputeGapCourse();
+  updateVisuals();
+}
+
+// Offsets so setzen, dass alle im selben Moment ueber die Startlinie fahren. Bezug ist
+// die erste Datei, die an der Linie vorbeikommt; Datei 1 behaelt ihren Offset.
+function alignOffsetsToStartLine() {
+  const { matches } = state.gap;
+  const anchor = state.slots.find((slot) => matches.has(slot.id));
+  if (!anchor || matches.size < 2) {
+    return;
+  }
+
+  const anchorCross = matches.get(anchor.id).crossTime + anchor.offsetSeconds;
+  state.slots.forEach((slot, index) => {
+    const match = matches.get(slot.id);
+    if (index === 0 || slot === anchor || !match) {
+      return;
+    }
+    slot.offsetSeconds = Math.round(anchorCross - match.crossTime);
+    slot.el.offsetRange.value = String(slot.offsetSeconds);
+    updateOffsetDisplay(slot);
+  });
+  recomputeTimeline();
+}
+
+// Marker nach Strecken-km sortiert, der Vorderste zuerst, dazwischen der Abstand in km
+// und Zeit. Die Zeit ist der Rennabstand: wie lange es her ist, dass der Vordere an der
+// Stelle war, an der der Hintere jetzt ist. Marker ohne Strecken-km (vor der Startlinie,
+// laenger abseits) kommen blass ans Ende. Dieselbe Liste zeichnet auch das Video.
+function buildGapItems(overallTime) {
+  const { matches } = state.gap;
+  if (matches.size < 2) {
+    return null;
+  }
+
+  const origin = getTimelineOrigin();
+  const placed = [];
+  const missing = [];
+  for (const slot of getGapSlots()) {
+    const match = matches.get(slot.id);
+    const km = match ? courseKmAt(match, getSlotTime(slot, overallTime)) : null;
+    if (km === null) {
+      missing.push(slot);
+    } else {
+      placed.push({ slot, match, km });
+    }
+  }
+  placed.sort((a, b) => b.km - a.km);
+
+  const items = [];
+  placed.forEach((entry, index) => {
+    if (index > 0) {
+      const front = placed[index - 1];
+      const frontTime = timeWhenAtKm(front.match, entry.km);
+      const seconds = frontTime === null ? null : overallTime - (frontTime - origin + front.slot.offsetSeconds);
+      items.push({ type: 'gap', text: formatGap(front.km - entry.km, seconds) });
+    }
+    items.push({ type: 'marker', color: entry.slot.color, name: getSlotDisplayName(entry.slot), missing: false });
+  });
+  for (const slot of missing) {
+    items.push({ type: 'marker', color: slot.color, name: getSlotDisplayName(slot), missing: true });
+  }
+  return items;
+}
+
+function formatGap(km, seconds) {
+  const distance = `${formatNumber(Math.max(0, km), km < 10 ? 2 : 1)} km`;
+  return seconds === null ? distance : `${distance} / ${formatDuration(Math.max(0, seconds))}`;
+}
+
+function renderGapBar() {
+  const html = (buildGapItems(state.currentTime) ?? [])
+    .map((item) => (item.type === 'gap'
+      ? `<span class="gap-link"><span class="gap-label">${escapeHtml(item.text)}</span></span>`
+      : `<span class="gap-marker${item.missing ? ' missing' : ''}" style="--marker-color: ${item.color}" title="${
+        escapeHtml(item.missing ? `${item.name}: ${t('gap.missing')}` : item.name)}"></span>`))
+    .join('');
+  // Laeuft jeden Frame; das DOM nur anfassen, wenn sich etwas geaendert hat.
+  if (html !== state.gap.barHtml) {
+    state.gap.barHtml = html;
+    elements.gapBar.innerHTML = html;
+  }
+}
+
+function renderStartLineLayer() {
+  clearMapLayer('startLine');
+  const { start } = state.gap;
+  if (!start) {
+    return;
+  }
+
+  state.layers.startLine = L.circleMarker([start.lat, start.lon], {
+    radius: 10,
+    color: '#ffffff',
+    weight: 3,
+    dashArray: '4 3',
+    fill: false,
+    interactive: false,
+  }).addTo(state.map);
+}
+
+function getVideoGapProvider() {
+  return elements.videoGaps.checked && state.gap.matches.size >= 2 ? buildGapItems : null;
+}
+
 // ------------------------------ Video-Export ------------------------------
 
 function initVideoExport() {
@@ -566,6 +811,7 @@ function initVideoExport() {
     scheduleVideoPreview();
   });
   elements.videoQuality.addEventListener('change', updateVideoEstimate);
+  elements.videoGaps.addEventListener('change', () => scheduleVideoPreview());
   elements.videoForm.addEventListener('submit', (event) => {
     event.preventDefault();
     runVideoExport();
@@ -737,6 +983,7 @@ function openVideoDialog() {
   elements.videoProgress.classList.add('hidden');
   elements.videoStatus.textContent = '';
   elements.videoCancel.textContent = t('video.close');
+  elements.videoGaps.disabled = state.gap.matches.size < 2;
   videoExportState.view = AUTO_VIEW;
   videoExportState.viewport = null;
   updateVideoEstimate();
@@ -797,6 +1044,7 @@ async function paintVideoPreview(loadMissing) {
       tracks: buildVideoTracks(),
       view: videoExportState.view,
       time: state.currentTime,
+      gapsAt: getVideoGapProvider(),
       loadMissing,
       signal: controller.signal,
     });
@@ -852,6 +1100,7 @@ function setVideoBusy(busy) {
   ]) {
     control.disabled = busy;
   }
+  elements.videoGaps.disabled = busy || state.gap.matches.size < 2;
   elements.videoPreview.classList.toggle('locked', busy);
   elements.videoProgressTrack.classList.toggle('loading', busy);
   elements.videoCancel.textContent = busy ? t('video.cancel') : t('video.close');
@@ -881,6 +1130,7 @@ async function runVideoExport() {
       height,
       fps: VIDEO_FPS,
       view: videoExportState.view,
+      gapsAt: getVideoGapProvider(),
       signal: controller.signal,
       onProgress: ({ phase, ratio, text }) => {
         const mapped = phase === 'tiles' ? ratio * 0.1 : phase === 'render' ? 0.1 + ratio * 0.88 : 1;
@@ -1163,6 +1413,7 @@ async function handleFileSelection(slot) {
       status: t('file.loaded'),
       meta: buildTrackSummary(track, track.fileName),
     });
+    recomputeGapCourse();
     recomputeTimeline();
     fitMapBounds();
   } catch (error) {
@@ -1178,6 +1429,7 @@ async function handleFileSelection(slot) {
       status: t('file.error'),
       meta: t('file.loadError', { message: error.message }),
     });
+    recomputeGapCourse();
     renderEmptyState();
   }
 }
@@ -1792,6 +2044,7 @@ function recomputeTimeline() {
 
 function updateVisuals() {
   updatePlaybackLabels();
+  renderGapBar();
   updateMapLayers();
   refreshChart();
   elements.progress.value = String(state.currentTime);
@@ -1848,11 +2101,17 @@ function updateMapLayers() {
     }
   }
 
+  renderStartLineLayer();
   updateHoverMapMarkers();
   renderDistanceSelectionLayers();
 }
 
 function handleMapDistanceSelectionClick(event) {
+  if (state.gap.picking) {
+    handleStartLinePick(event);
+    return;
+  }
+
   const nearestBySlot = state.slots.map((slot) => findNearestMapSample(slot.track, event.latlng));
   const nearestDistance = Math.min(...nearestBySlot.map((result) => result?.pixelDistance ?? Infinity));
   if (nearestDistance > 30) {

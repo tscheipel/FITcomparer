@@ -12,7 +12,8 @@ Vergleiche Aktivitäten von Garmin, Wahoo, COROS, Suunto, Polar, Strava und ande
 - **Gerätewerte wie in Garmin Connect** (aus der Zusammenfassung der FIT-Datei) und daneben **nachgerechnete Werte** aus den Sekundenwerten, inklusive Abweichungsanzeige.
 - **Zeit- und Distanzfenster:** Kennzahlen für einen beliebigen Abschnitt, auch wenn die Aktivitäten ihn zu verschiedenen Zeiten gefahren sind.
 - **Dateien per Drag & Drop** auf die Dateikarte ziehen oder über „Datei auswählen“ laden.
-- **Start-Offset**, um ungleiche Startzeiten bei Rennen oder gemeinsamen Ausfahrten auszugleichen.
+- **Start-Offset**, um ungleiche Startzeiten bei Rennen oder gemeinsamen Ausfahrten auszugleichen, auf Knopfdruck automatisch an einer gemeinsamen Startlinie.
+- **Abstand zwischen den Markern** in km entlang der Strecke und als Rennabstand in Zeit, auch im Video.
 - **Wiedergabe** mit wandernden Markern auf der Karte, Graph für Puls, Leistung, Geschwindigkeit, Distanz, Kadenz und Höhe.
 - **MP4-Export** in 16:9, 4:3, 1:1, 4:5 und 9:16 mit frei wählbarem Kartenausschnitt.
 - Kleine **?-Erklärungen** an den Bedienelementen und eine Ansicht für das Smartphone.
@@ -29,7 +30,7 @@ Die ausführliche Anleitung mit Screenshots steht unter **[help.html](https://fi
 
 ## English
 
-FITcomparer compares activities from Garmin, Wahoo, COROS, Suunto, Polar, Strava and others side by side (FIT, GPX or the ZIP from Garmin Connect): key figures, map, graph, time and distance windows and MP4 video export. Everything runs in your browser, your files are not uploaded. The app and the guide are available in German (default) and English; use the flags at the top to switch, or open <https://fit.scheipel.com/en/>.
+FITcomparer compares activities from Garmin, Wahoo, COROS, Suunto, Polar, Strava and others side by side (FIT, GPX or the ZIP from Garmin Connect): key figures, map, graph, time and distance windows, the live gap between the markers along the course, and MP4 video export. Everything runs in your browser, your files are not uploaded. The app and the guide are available in German (default) and English; use the flags at the top to switch, or open <https://fit.scheipel.com/en/>.
 
 Quick start: in **Garmin Connect (web, not the app)** open the activity, click the gear icon and choose **“Export File”**, then load the ZIP in FITcomparer. FIT files from other platforms work too, see the [guide](https://fit.scheipel.com/en/help.html).
 

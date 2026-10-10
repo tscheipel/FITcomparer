@@ -226,6 +226,23 @@
           <span id="durationLabel">0:00</span>
         </div>
       </div>
+
+      <div class="gap-panel hidden" id="gapPanel">
+        <div class="gap-head">
+          <div class="label-row">
+            <span class="gap-title">Abstand</span>
+            <button type="button" class="help" data-help="gap">?</button>
+          </div>
+          <div class="gap-controls">
+            <label class="gap-reference"><span>Referenz</span><select id="gapReference"></select></label>
+            <button class="secondary-button skip-button" id="gapPickStart" type="button">Startlinie wählen</button>
+            <button class="secondary-button skip-button hidden" id="gapAutoStart" type="button">Automatisch</button>
+            <button class="secondary-button skip-button" id="gapAlign" type="button">An Startlinie ausrichten</button>
+          </div>
+        </div>
+        <div class="gap-bar" id="gapBar"></div>
+        <p class="gap-hint" id="gapHint"></p>
+      </div>
     </section>
 
     <section class="panel map-card">
@@ -370,6 +387,10 @@
       <label class="video-field">
         <span class="field-label">Auflösung <button type="button" class="help" data-help="videoQuality">?</button></span>
         <select id="videoQuality"></select>
+      </label>
+      <label class="video-field">
+        <span class="field-label">Abstände <button type="button" class="help" data-help="videoGaps">?</button></span>
+        <span class="video-check"><input type="checkbox" id="videoGaps" checked> einblenden</span>
       </label>
 
       <div class="video-crop">

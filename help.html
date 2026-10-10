@@ -123,6 +123,7 @@
             <li><a href="#offset">Start-Offset: ungleiche Startzeiten ausgleichen</a></li>
             <li><a href="#tabellen">Die Vergleichstabellen</a></li>
             <li><a href="#playback">Wiedergabe</a></li>
+            <li><a href="#abstand">Abstand zwischen den Markern</a></li>
             <li><a href="#karte">Karte und Distanzfenster</a></li>
             <li><a href="#graph">Graph und Zeitfenster</a></li>
             <li><a href="#video">Als MP4-Video speichern</a></li>
@@ -274,6 +275,16 @@
         <li><strong>Zeitleiste.</strong> Ziehe den Regler, um an eine beliebige Stelle zu springen.</li>
       </ol>
 
+      <h3 id="abstand">Abstand zwischen den Markern</h3>
+      <p>Unter der Zeitleiste steht, wie weit die Marker gerade auseinander sind, zum Beispiel <code>○— 0,55 km / 0:43 —○— 3,09 km / 5:42 —○</code>. Die Marker sind nach ihrer Position auf der Strecke sortiert, der Vorderste steht links. Die Zeile erscheint, sobald mindestens zwei Aktivitäten mit GPS geladen sind.</p>
+      <ul>
+        <li><strong>Kilometer</strong> werden entlang der Strecke gemessen: Jede Position wird auf die Linie der <strong>Referenz</strong> gelegt (Auswahl links neben den Knöpfen, voreingestellt Datei 1). Die Distanzzähler der Geräte taugen dafür nicht, sie laufen auf 200 km um einige hundert Meter auseinander.</li>
+        <li><strong>Zeit</strong> ist der Rennabstand: wie lange es her ist, dass der Vordere an der Stelle war, an der der Hintere gerade ist. Haben alle das Ziel erreicht, steht dort der Abstand im Ziel.</li>
+        <li><strong>Startlinie.</strong> Gezählt wird ab einer gemeinsamen Startlinie, auf der Karte ein weißer, gestrichelter Ring. Sie wird automatisch an die erste Stelle kurz nach dem Start gesetzt, an der alle Spuren eng beieinander liegen. Mit „Startlinie wählen“ und einem Klick auf die Referenzspur legst du sie selbst fest, „Automatisch“ nimmt wieder die erkannte Stelle.</li>
+        <li><strong>An Startlinie ausrichten</strong> setzt die <a href="#offset">Start-Offsets</a> so, dass alle Aktivitäten im selben Moment über die Startlinie fahren. Das ersetzt das Ausprobieren von Hand.</li>
+        <li>Ein <strong>blasser Marker</strong> am Ende ist noch vor der Startlinie oder seit mehr als einer Minute abseits der Referenzstrecke, etwa bei einem Umweg oder wenn sich die Wege trennen.</li>
+      </ul>
+
       <h3 id="karte">Karte und Distanzfenster</h3>
       <figure class="shot">
         <img src="./docs/img/map.webp" width="1800" height="952" loading="lazy" alt="Karte mit Strecke, Positionsmarkern, zwei Klickpunkten für das Distanzfenster, Legende und Ziehgriff">
@@ -330,7 +341,7 @@
         <li><strong>Export starten.</strong> Unter den Feldern siehst du Länge und höchstmögliche Größe der Datei. Mit „Abbrechen“ stoppst du jederzeit, dann wird nichts gespeichert.</li>
       </ol>
       <div class="note">
-        <p><strong>Gut zu wissen:</strong> Die Namen der Dateien in der Legende sind genau die Anzeigenamen, die du oben vergeben hast. Für den Export brauchst du einen aktuellen Chrome-, Edge- oder Firefox-Browser mit Video-Unterstützung (WebCodecs) und eine Datei mit GPS-Daten. Die Kartenkacheln werden dafür einmal aus dem Internet geladen. Firefox erzeugt bei gleicher Einstellung größere Dateien als Chrome und Edge.</p>
+        <p><strong>Gut zu wissen:</strong> Die Namen der Dateien in der Legende sind genau die Anzeigenamen, die du oben vergeben hast. Mit „Abstände einblenden“ steht die <a href="#abstand">Abstandszeile</a> auch unten im Video. Für den Export brauchst du einen aktuellen Chrome-, Edge- oder Firefox-Browser mit Video-Unterstützung (WebCodecs) und eine Datei mit GPS-Daten. Die Kartenkacheln werden dafür einmal aus dem Internet geladen. Firefox erzeugt bei gleicher Einstellung größere Dateien als Chrome und Edge.</p>
       </div>
 
       <h3 id="mobil">Am Handy</h3>

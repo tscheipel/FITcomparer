@@ -499,6 +499,111 @@ function drawLegend(ctx, tracks, width, height) {
   ctx.restore();
 }
 
+// Abstandszeile unten mittig, wie unter der Wiedergabe: Marker-Ringe, dazwischen
+// "2,10 km / 3:40". Die Eintraege kommen fertig formatiert aus app.js (buildGapItems).
+// Umgebrochen wird nur vor einem Abstand, damit Abstand und folgender Marker zusammenbleiben.
+function drawGapBar(ctx, items, width, height) {
+  if (!items?.length) {
+    return;
+  }
+
+  const unit = Math.min(width, height) / 720;
+  const fontSize = Math.round(15 * unit);
+  const radius = Math.max(4, Math.round(7 * unit));
+  const ring = Math.max(2, Math.round(2.5 * unit));
+  const line = Math.round(14 * unit);
+  const textPad = Math.round(6 * unit);
+  const missingGap = Math.round(18 * unit);
+  const padX = Math.round(14 * unit);
+  const padY = Math.round(8 * unit);
+  const margin = Math.round(16 * unit);
+  // Platz fuer die OSM-Attribution in der rechten unteren Ecke.
+  const bottom = margin + Math.round(22 * unit);
+  const rowHeight = Math.max(Math.round(fontSize * 1.6), 2 * (radius + ring));
+  const maxRowWidth = width - 2 * margin - 2 * padX;
+
+  ctx.save();
+  ctx.font = `600 ${fontSize}px "IBM Plex Sans", system-ui, sans-serif`;
+  ctx.textBaseline = 'middle';
+
+  const pieces = items.map((item, index) => {
+    if (item.type === 'gap') {
+      return { item, width: 2 * line + 2 * textPad + ctx.measureText(item.text).width };
+    }
+    const lead = item.missing && index > 0 && !items[index - 1].missing ? missingGap : 0;
+    return { item, lead, width: lead + 2 * (radius + ring) };
+  });
+
+  const groups = [];
+  for (const piece of pieces) {
+    if (piece.item.type === 'gap' || !groups.length || (piece.lead && groups.at(-1).at(-1).item.type === 'marker')) {
+      groups.push([piece]);
+    } else {
+      groups.at(-1).push(piece);
+    }
+  }
+
+  const rows = [[]];
+  let rowWidth = 0;
+  for (const group of groups) {
+    const groupWidth = group.reduce((sum, piece) => sum + piece.width, 0);
+    if (rows.at(-1).length && rowWidth + groupWidth > maxRowWidth) {
+      rows.push([]);
+      rowWidth = 0;
+    }
+    rows.at(-1).push(...group);
+    rowWidth += groupWidth;
+  }
+
+  const rowWidths = rows.map((row) => row.reduce((sum, piece) => sum + piece.width, 0));
+  const boxWidth = Math.min(maxRowWidth, Math.max(...rowWidths)) + 2 * padX;
+  const boxHeight = rows.length * rowHeight + 2 * padY;
+  const boxX = (width - boxWidth) / 2;
+  const boxY = height - bottom - boxHeight;
+
+  ctx.fillStyle = 'rgba(8, 16, 28, 0.82)';
+  roundedRect(ctx, boxX, boxY, boxWidth, boxHeight, Math.round(12 * unit));
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  rows.forEach((row, rowIndex) => {
+    let x = (width - rowWidths[rowIndex]) / 2;
+    const y = boxY + padY + rowIndex * rowHeight + rowHeight / 2;
+    for (const piece of row) {
+      const { item } = piece;
+      if (item.type === 'gap') {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = Math.max(1, Math.round(1.5 * unit));
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + line, y);
+        ctx.moveTo(x + piece.width - line, y);
+        ctx.lineTo(x + piece.width, y);
+        ctx.stroke();
+        ctx.fillStyle = '#eff5ff';
+        ctx.fillText(item.text, x + line + textPad, y);
+        x += piece.width;
+      } else {
+        const cx = x + piece.lead + radius + ring;
+        ctx.globalAlpha = item.missing ? 0.4 : 1;
+        ctx.beginPath();
+        ctx.arc(cx, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#06131b';
+        ctx.fill();
+        ctx.lineWidth = ring;
+        ctx.strokeStyle = item.color;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        x += piece.width;
+      }
+    }
+  });
+
+  ctx.restore();
+}
+
 // Lizenzpflicht der OSM-Kacheln.
 function drawAttribution(ctx, width, height) {
   const unit = Math.min(width, height) / 720;
@@ -558,7 +663,7 @@ function drawMarkers(ctx, tracks, viewport, time) {
  * Viewport zurueck (die Oberflaeche braucht ihn zum Verschieben und Zoomen).
  * loadMissing=false: nur schon geladene Kacheln, ohne Netzwerk.
  */
-export async function renderPreview(canvas, { tracks, view, time, loadMissing, signal }) {
+export async function renderPreview(canvas, { tracks, view, time, gapsAt = null, loadMissing, signal }) {
   const drawable = tracks.filter((track) => track.mapSamples.length);
   const ctx = canvas.getContext('2d');
   const bounds = collectWorldBounds(drawable);
@@ -572,6 +677,9 @@ export async function renderPreview(canvas, { tracks, view, time, loadMissing, s
   const tiles = await paintBase(ctx, drawable, viewport, { loadMissing, signal });
   signal?.throwIfAborted();
   drawMarkers(ctx, drawable, viewport, time);
+  if (gapsAt) {
+    drawGapBar(ctx, gapsAt(time), canvas.width, canvas.height);
+  }
   return { viewport, tiles };
 }
 
@@ -700,10 +808,11 @@ function repairAvcMeta(chunk, meta) {
  * @param {number} options.height
  * @param {number} options.fps
  * @param {object} [options.view]     Kartenausschnitt (AUTO_VIEW = alle Tracks)
+ * @param {(time: number) => Array|null} [options.gapsAt]  Abstandszeile je Zeitpunkt (null = keine)
  * @param {(info: {phase: string, ratio: number, text: string}) => void} [options.onProgress]
  * @param {AbortSignal} [options.signal]
  */
-export async function exportVideo({ tracks, duration, speed, width, height, fps, view = AUTO_VIEW, onProgress, signal }) {
+export async function exportVideo({ tracks, duration, speed, width, height, fps, view = AUTO_VIEW, gapsAt = null, onProgress, signal }) {
   if (!isVideoExportSupported()) {
     throw new Error(t('video.err.noWebCodecs'));
   }
@@ -776,8 +885,12 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
         await new Promise((resolve) => encoder.addEventListener('dequeue', resolve, { once: true }));
       }
 
+      const time = Math.min(duration, (index * speed) / fps);
       ctx.drawImage(base, 0, 0);
-      drawMarkers(ctx, drawable, viewport, Math.min(duration, (index * speed) / fps));
+      drawMarkers(ctx, drawable, viewport, time);
+      if (gapsAt) {
+        drawGapBar(ctx, gapsAt(time), width, height);
+      }
 
       const frame = new VideoFrame(canvas, { timestamp: index * frameDurationUs, duration: frameDurationUs });
       encoder.encode(frame, { keyFrame: index % (fps * 2) === 0 });

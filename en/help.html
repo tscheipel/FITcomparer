@@ -123,6 +123,7 @@
             <li><a href="#offset">Start offset: compensate for different start times</a></li>
             <li><a href="#tabellen">The comparison tables</a></li>
             <li><a href="#playback">Playback</a></li>
+            <li><a href="#abstand">Gap between the markers</a></li>
             <li><a href="#karte">Map and distance window</a></li>
             <li><a href="#graph">Graph and time window</a></li>
             <li><a href="#video">Save as MP4 video</a></li>
@@ -274,6 +275,16 @@
         <li><strong>Timeline.</strong> Drag the slider to jump to any point.</li>
       </ol>
 
+      <h3 id="abstand">Gap between the markers</h3>
+      <p>Below the timeline you see how far apart the markers are right now, for example <code>○— 0.55 km / 0:43 —○— 3.09 km / 5:42 —○</code>. The markers are ordered by their position on the course, the leader on the left. The line appears as soon as at least two activities with GPS are loaded.</p>
+      <ul>
+        <li><strong>Kilometres</strong> are measured along the course: each position is placed onto the line of the <strong>reference</strong> (chosen left of the buttons, file 1 by default). The devices’ distance counters are not good enough for this, they drift apart by a few hundred metres over 200 km.</li>
+        <li><strong>Time</strong> is the race gap: how long ago the one in front was at the spot where the one behind is now. Once everyone has finished, it shows the gap at the finish.</li>
+        <li><strong>Start line.</strong> Counting starts at a common start line, shown on the map as a white dashed ring. It is set automatically at the first spot shortly after the start where all tracks run close together. With “Pick start line” and a click on the reference track you set it yourself; “Automatic” goes back to the detected spot.</li>
+        <li><strong>Align to start line</strong> sets the <a href="#offset">start offsets</a> so that all activities cross the start line at the same moment. This replaces adjusting them by hand.</li>
+        <li>A <strong>faded marker</strong> at the end is still before the start line or has been off the reference course for more than a minute, for example on a detour or where the routes split.</li>
+      </ul>
+
       <h3 id="karte">Map and distance window</h3>
       <figure class="shot">
         <img src="../docs/img/en/map.webp" width="1800" height="952" loading="lazy" alt="Map with route, position markers, two click points for the distance window, legend, and drag handle">
@@ -330,7 +341,7 @@
         <li><strong>Start export.</strong> Below the fields you see the length and the maximum possible size of the file. With “Cancel”, you can stop at any time, and nothing is saved.</li>
       </ol>
       <div class="note">
-        <p><strong>Good to know:</strong> The file names in the legend are exactly the display names you assigned above. For the export you need a current Chrome, Edge, or Firefox browser with video support (WebCodecs) and a file with GPS data. The map tiles are loaded from the internet once for this. At the same settings, Firefox produces larger files than Chrome and Edge.</p>
+        <p><strong>Good to know:</strong> The file names in the legend are exactly the display names you assigned above. With “Gaps: show” the <a href="#abstand">gap line</a> also appears at the bottom of the video. For the export you need a current Chrome, Edge, or Firefox browser with video support (WebCodecs) and a file with GPS data. The map tiles are loaded from the internet once for this. At the same settings, Firefox produces larger files than Chrome and Edge.</p>
       </div>
 
       <h3 id="mobil">On your phone</h3>

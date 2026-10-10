@@ -65,6 +65,17 @@ const HELP_DE = {
       'Im Zeitfeld kannst du eine Zeit eintippen, zum Beispiel 12:34 oder 1:30:00, und mit Enter dorthin springen.',
     ],
   },
+  gap: {
+    title: 'Abstand',
+    body: [
+      'Zeigt, wie weit die Marker gerade auseinander sind, sortiert nach ihrer Position auf der Strecke: der Vorderste links. Zwischen zwei Markern steht der Abstand in Kilometern und in Zeit.',
+      'Die Kilometer werden entlang der Referenzstrecke gemessen, nicht über die Luftlinie und nicht über die Distanzzähler der Geräte, die auf langen Strecken einige hundert Meter auseinanderlaufen. Jede Position wird dazu auf die Linie der Referenzspur gelegt.',
+      'Die Zeit ist der Rennabstand: wie lange es her ist, dass der Vordere an der Stelle war, an der der Hintere gerade ist.',
+      'Gezählt wird ab der Startlinie (weißer Ring auf der Karte). Sie wird automatisch dort gesetzt, wo kurz nach dem Start alle Spuren eng beieinander liegen. Mit „Startlinie wählen“ und einem Klick auf die Referenzspur legst du sie selbst fest.',
+      '„An Startlinie ausrichten“ setzt die Start-Offsets so, dass alle Aktivitäten im selben Moment über die Startlinie fahren.',
+      'Ein blasser Punkt am Ende ist eine Aktivität, die noch vor der Startlinie oder länger als eine Minute abseits der Referenzstrecke ist.',
+    ],
+  },
   map: {
     title: 'Karte',
     body: [
@@ -131,6 +142,13 @@ const HELP_DE = {
       'Die Bildgröße, gerechnet über die kurze Seite. „Vorschau" ist schnell und klein, „Full HD" ist scharf, aber deutlich größer. Die Pixelzahl steht jeweils in Klammern.',
     ],
   },
+  videoGaps: {
+    title: 'Abstände im Video',
+    body: [
+      'Blendet unten im Video dieselbe Abstandszeile ein wie unter der Wiedergabe: Marker nach Position sortiert, dazwischen Abstand in km und Zeit.',
+      'Nur verfügbar, wenn eine Startlinie gesetzt ist und mindestens zwei Aktivitäten an ihr vorbeikommen.',
+    ],
+  },
   videoCrop: {
     title: 'Ausschnitt',
     body: [
@@ -190,6 +208,17 @@ const HELP_EN = {
       '− 1 min, − 10 s, + 10 s and + 1 min jump in time; a running playback continues afterwards. ↺ jumps back to the start.',
       'The speed (0.5× to 500×) determines how fast the markers move on the map.',
       'In the time field you can type a time, for example 12:34 or 1:30:00, and press Enter to jump there.',
+    ],
+  },
+  gap: {
+    title: 'Gap',
+    body: [
+      'Shows how far apart the markers are right now, ordered by their position on the course: the leader on the left. Between two markers you see the gap in kilometres and in time.',
+      'The kilometres are measured along the reference course, not as the crow flies and not with the devices’ distance counters, which drift apart by a few hundred metres on long rides. Each position is placed onto the line of the reference track.',
+      'The time is the race gap: how long ago the one in front was at the spot where the one behind is now.',
+      'Counting starts at the start line (white ring on the map). It is set automatically where all tracks run close together shortly after the start. With “Pick start line” and a click on the reference track you set it yourself.',
+      '“Align to start line” sets the start offsets so that all activities cross the start line at the same moment.',
+      'A faded dot at the end is an activity that is still before the start line or has been off the reference course for more than a minute.',
     ],
   },
   map: {
@@ -256,6 +285,13 @@ const HELP_EN = {
     title: 'Resolution',
     body: [
       'The image size, measured on the short side. “Preview” is fast and small, “Full HD” is sharp but much larger. The pixel count is shown in parentheses.',
+    ],
+  },
+  videoGaps: {
+    title: 'Gaps in the video',
+    body: [
+      'Shows the same gap line at the bottom of the video as below the playback: markers ordered by position, with the gap in km and time between them.',
+      'Only available when a start line is set and at least two activities pass it.',
     ],
   },
   videoCrop: {

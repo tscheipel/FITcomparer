@@ -88,6 +88,17 @@ const DICT = {
     'inspector.noFile': 'Noch keine Datei geladen',
     'distance.pickEnd': 'Start gesetzt – jetzt Endpunkt wählen',
 
+    // Abstand zwischen den Markern
+    'gap.auto': 'Startlinie automatisch bei km {km} der Referenz gesetzt.',
+    'gap.manual': 'Startlinie bei km {km} der Referenz gewählt.',
+    'gap.noStart': 'Keine gemeinsame Startlinie gefunden – mit „Startlinie wählen“ eine Stelle auf der Referenzspur anklicken.',
+    'gap.noCross': 'Höchstens eine Aktivität kommt an der Startlinie vorbei – bitte eine andere Stelle wählen.',
+    'gap.picking': 'Klicke auf der Karte auf die Referenzspur (Esc bricht ab).',
+    'gap.pickCancel': 'Abbrechen',
+    'gap.pick': 'Startlinie wählen',
+    'gap.missing': 'vor der Startlinie oder abseits der Referenzstrecke',
+    'gap.startLine': 'Startlinie',
+
     // Video-Dialog
     'video.reason.webcodecs': 'Der Videoexport braucht WebCodecs (aktuelles Chrome oder Edge).',
     'video.reason.noGps': 'Zuerst eine Datei mit GPS-Daten laden.',
@@ -191,6 +202,16 @@ const DICT = {
     'inspector.hoverEmpty': 'Move the mouse over the graph',
     'inspector.noFile': 'No file loaded yet',
     'distance.pickEnd': 'Start set – now pick the end point',
+
+    'gap.auto': 'Start line set automatically at km {km} of the reference.',
+    'gap.manual': 'Start line picked at km {km} of the reference.',
+    'gap.noStart': 'No common start line found – use “Pick start line” and click a spot on the reference track.',
+    'gap.noCross': 'At most one activity passes the start line – please pick another spot.',
+    'gap.picking': 'Click on the reference track on the map (Esc cancels).',
+    'gap.pickCancel': 'Cancel',
+    'gap.pick': 'Pick start line',
+    'gap.missing': 'before the start line or off the reference course',
+    'gap.startLine': 'Start line',
 
     'video.reason.webcodecs': 'Video export needs WebCodecs (a current Chrome or Edge).',
     'video.reason.noGps': 'Load a file with GPS data first.',

@@ -533,6 +533,135 @@ select {
   box-shadow: 0 0 0 3px rgba(77, 225, 193, 0.15);
 }
 
+/* ------------------------------ Abstand zwischen den Markern ------------------------------ */
+
+.gap-panel {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.gap-head .label-row {
+  margin-bottom: 0;
+}
+
+.gap-title {
+  font-weight: 600;
+}
+
+.gap-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.gap-reference {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.gap-reference select {
+  max-width: 220px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}
+
+.gap-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Marker-Ringe wie auf der Karte, dazwischen eine Linie mit dem Abstand. */
+.gap-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 8px;
+  min-height: 28px;
+  font-family: "Sora", sans-serif;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gap-marker {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 3px solid var(--marker-color);
+  border-radius: 50%;
+  background: #06131b;
+}
+
+.gap-marker.missing {
+  opacity: 0.4;
+}
+
+.gap-marker:not(.missing) + .gap-marker.missing {
+  margin-left: 18px;
+}
+
+.gap-marker.missing + .gap-marker.missing {
+  margin-left: 6px;
+}
+
+.gap-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.gap-link::before,
+.gap-link::after {
+  content: "";
+  width: 18px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.gap-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.gap-hint:empty {
+  display: none;
+}
+
+.map-frame.picking-start #map {
+  cursor: crosshair;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.video-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-a);
+}
+
 /* Rahmen = Karte + Griff. Seine Hoehe ist das, was der Nutzer verstellt. */
 .map-frame {
   position: relative;
