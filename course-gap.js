@@ -26,8 +26,10 @@ const MATCH_LOST_STRIDE = 10;
 const CROSS_MAX_DISTANCE_M = 50;
 // Laenger neben der Strecke: kein Abstand mehr, statt einen alten Wert stehen zu lassen.
 const OFF_ROUTE_HOLD_SECONDS = 60;
-// So nah am Ende der Referenzstrecke gilt eine Spur als im Ziel.
+// So nah an der Ziellinie gilt eine Spur als im Ziel.
 const FINISH_TOLERANCE_KM = 0.3;
+// Endet eine Spur so knapp vor dem Ziel, wird die Ziellinie fuer alle vorgezogen.
+const FINISH_PULL_KM = 3;
 
 const AUTO_START_MIN_KM = 0.2;
 const AUTO_START_STEP_KM = 0.025;
@@ -177,14 +179,15 @@ function gridHasPointNear(grid, px, py, radius) {
 }
 
 /**
- * Erste Stelle der Referenzstrecke (ab 200 m nach ihrem Start), an der alle anderen
- * Spuren in der ersten Haelfte ihrer Aufzeichnung naeher als 25 m vorbeikommen.
- * Die Einschraenkung auf die erste Haelfte verhindert bei Rundkursen, dass das Ziel
- * einer spaeter gestarteten Spur als ihr Start gilt.
+ * Erste Stelle der Referenzstrecke ab minKm (Spur als Referenz: 200 m nach ihrem Start,
+ * offizielle Rennstrecke: ihr Start), an der alle uebergebenen Spuren in der ersten
+ * Haelfte ihrer Aufzeichnung naeher als 25 m vorbeikommen. Die Einschraenkung auf die
+ * erste Haelfte verhindert bei Rundkursen, dass das Ziel einer spaeter gestarteten Spur
+ * als ihr Start gilt.
  */
-export function findAutoStart(course, otherMapSamples) {
-  const grids = otherMapSamples.filter((samples) => samples.length).map((samples) => buildGrid(course, samples));
-  const firstKm = course.km[0] + AUTO_START_MIN_KM;
+export function findAutoStart(course, mapSamplesList, { minKm = AUTO_START_MIN_KM } = {}) {
+  const grids = mapSamplesList.filter((samples) => samples.length).map((samples) => buildGrid(course, samples));
+  const firstKm = course.km[0] + minKm;
   const lastKm = course.km[0] + course.totalKm * AUTO_START_MAX_SHARE;
   let nextKm = firstKm;
 
@@ -200,6 +203,15 @@ export function findAutoStart(course, otherMapSamples) {
     }
   }
   return null;
+}
+
+/** Indizes der Spuren, die in der ersten Haelfte ihrer Aufzeichnung nicht am Streckenpunkt index vorbeikommen. */
+export function findLateStarters(course, mapSamplesList, index) {
+  const px = course.x[index];
+  const py = course.y[index];
+  return mapSamplesList
+    .map((samples, listIndex) => (gridHasPointNear(buildGrid(course, samples), px, py, AUTO_START_RADIUS_M) ? -1 : listIndex))
+    .filter((listIndex) => listIndex >= 0);
 }
 
 /**
@@ -277,13 +289,50 @@ export function matchTrack(course, mapSamples, start) {
     offSince[k] = offStart;
   }
 
-  const match = { crossTime: t[0], t, km, kmMax, offSince, offShare: offCount / count, finalKm: runningMax, finishTime: null };
-  // Im Ziel: ab dem ersten Erreichen des Streckenendes bleibt die Spur dort stehen, auch
-  // wenn die Aufzeichnung danach weiterlaeuft (Ausrollen, Heimweg).
-  if (runningMax >= course.km[course.km.length - 1] - FINISH_TOLERANCE_KM) {
-    match.finishTime = timeWhenAtKm(match, runningMax - 0.01);
+  // Ziel und Zielzeit setzt applyFinish, sobald die Ziellinie fuer alle Spuren feststeht.
+  return { crossTime: t[0], t, km, kmMax, offSince, offShare: offCount / count, maxKm: runningMax, finishKm: null, finishTime: null };
+}
+
+/**
+ * Ziellinie: das Ende der Referenzstrecke. Endet eine Spur in den letzten 3 km davor
+ * (Uhr zu frueh gestoppt), wird die Ziellinie fuer alle dorthin vorgezogen. Spuren, die
+ * noch frueher enden, gelten als Aufgabe und verschieben nichts.
+ * matches: Map oder Array von [key, match]; early nennt die Schluessel der Spuren, die
+ * das Vorziehen ausgeloest haben.
+ */
+export function chooseFinish(course, matches) {
+  const lastIndex = course.km.length - 1;
+  const end = course.km[lastIndex];
+  let finishKm = end;
+  for (const [, match] of matches) {
+    if (match.maxKm >= end - FINISH_PULL_KM) {
+      finishKm = Math.min(finishKm, match.maxKm);
+    }
   }
-  return match;
+
+  if (finishKm >= end - FINISH_TOLERANCE_KM) {
+    return { km: end, index: lastIndex, lat: course.lat[lastIndex], lon: course.lon[lastIndex], moved: false, early: [] };
+  }
+
+  const early = [...matches]
+    .filter(([, match]) => match.maxKm >= end - FINISH_PULL_KM && match.maxKm < end - FINISH_TOLERANCE_KM)
+    .map(([key]) => key);
+  const index = Math.min(lastIndex, lowerBound(course.km, finishKm));
+  return { km: finishKm, index, lat: course.lat[index], lon: course.lon[index], moved: true, early };
+}
+
+/**
+ * Im Ziel: ab dem ersten Erreichen der Ziellinie bleibt die Spur dort stehen, auch wenn
+ * die Aufzeichnung danach weiterlaeuft (Ausrollen, Heimweg).
+ */
+export function applyFinish(match, finishKm) {
+  if (match.maxKm >= finishKm - FINISH_TOLERANCE_KM) {
+    match.finishKm = Math.min(finishKm, match.maxKm);
+    match.finishTime = timeWhenAtKm(match, match.finishKm - 0.01);
+  } else {
+    match.finishKm = null;
+    match.finishTime = null;
+  }
 }
 
 /** Strecken-km einer Spur zu ihrer eigenen Zeit; null vor der Startlinie oder lange abseits, im Ziel der End-km. */
@@ -293,7 +342,7 @@ export function courseKmAt(match, time) {
     return null;
   }
   if (match.finishTime !== null && time >= match.finishTime) {
-    return match.finalKm;
+    return match.finishKm;
   }
 
   const last = t.length - 1;

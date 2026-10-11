@@ -7,8 +7,8 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { gunzipSync, unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { LOCALE, t } from './i18n.js?v=14';
-import { initTooltips } from './tooltips.js?v=14';
+import { LOCALE, t } from './i18n.js?v=15';
+import { initTooltips } from './tooltips.js?v=15';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -22,15 +22,18 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=14';
+} from './video-export.js?v=15';
 import {
+  applyFinish,
   buildCourse,
+  chooseFinish,
   courseKmAt,
   findAutoStart,
+  findLateStarters,
   matchTrack,
   snapToCourse,
   timeWhenAtKm,
-} from './course-gap.js?v=14';
+} from './course-gap.js?v=15';
 
 const METRICS = [
   { key: 'heartRate', label: t('metric.hr'), unit: 'bpm', color: '#ff9f5c' },
@@ -149,6 +152,13 @@ const videoExportState = {
 
 const VIDEO_PREVIEW_SHORT_SIDE = 360;
 
+// Werte der Referenz-Auswahl fuer die offizielle Rennstrecke (GPX).
+const OFFICIAL_REF = 'official';
+const OFFICIAL_LOAD = 'official-load';
+// Liegt die automatische Startlinie weiter als das hinter dem Start der Rennstrecke,
+// gilt sie als verschoben.
+const OFFICIAL_START_TOLERANCE_KM = 0.05;
+
 // Bis zu diesem Abstand (Strecke oder Zeit) gelten Marker als gemeinsam fahrende Gruppe.
 // 6 s sind etwa 50 m bei 30 km/h; die Zeit greift auf schnellen Abfahrten, die km bei Pausen.
 const GAP_GROUP_KM = 0.05;
@@ -170,14 +180,22 @@ const state = {
     distanceStartMarker: null,
     distanceEndMarker: null,
     startLine: null,
+    finishLine: null,
+    officialCourse: null,
   },
   // Abstand der Marker entlang der Strecke (course-gap.js). manualStart ist der per
-  // Klick gewaehlte Punkt; ohne ihn wird die Startlinie automatisch gesucht.
+  // Klick gewaehlte Punkt; ohne ihn wird die Startlinie automatisch gesucht. refSlotId
+  // ist eine Slot-ID oder OFFICIAL_REF, wenn die offizielle Rennstrecke (official) die
+  // Referenz ist.
   gap: {
     refSlotId: null,
+    official: null,
+    officialError: '',
     manualStart: null,
     course: null,
     start: null,
+    lateStarters: [],
+    finish: null,
     matches: new Map(),
     status: 'tooFew',
     picking: false,
@@ -227,6 +245,7 @@ const elements = {
   durationLabel: document.getElementById('durationLabel'),
   gapPanel: document.getElementById('gapPanel'),
   gapReference: document.getElementById('gapReference'),
+  gapCourseFile: document.getElementById('gapCourseFile'),
   gapPickStart: document.getElementById('gapPickStart'),
   gapAutoStart: document.getElementById('gapAutoStart'),
   gapAlign: document.getElementById('gapAlign'),
@@ -587,9 +606,28 @@ function getGapSlots() {
 
 function bindGapEvents() {
   elements.gapReference.addEventListener('change', () => {
-    state.gap.refSlotId = Number(elements.gapReference.value);
+    const value = elements.gapReference.value;
+    if (value === OFFICIAL_LOAD) {
+      // Auswahl sofort zuruecksetzen: bricht man den Dateidialog ab, bleibt alles wie es war.
+      syncGapReferenceOptions();
+      elements.gapCourseFile.value = '';
+      elements.gapCourseFile.click();
+      return;
+    }
+    state.gap.refSlotId = value === OFFICIAL_REF ? OFFICIAL_REF : Number(value);
+    state.gap.officialError = '';
     recomputeGapCourse();
     updateVisuals();
+  });
+  // Wie bei den Dateikarten: auf Touch-Geraeten graut ein accept-Filter .gpx aus.
+  if (window.matchMedia('(pointer: coarse)').matches) {
+    elements.gapCourseFile.removeAttribute('accept');
+  }
+  elements.gapCourseFile.addEventListener('change', () => {
+    const file = elements.gapCourseFile.files?.[0];
+    if (file) {
+      loadOfficialCourse(file);
+    }
   });
   elements.gapPickStart.addEventListener('click', () => setStartLinePicking(!state.gap.picking));
   elements.gapAutoStart.addEventListener('click', () => {
@@ -611,21 +649,32 @@ function bindGapEvents() {
 function recomputeGapCourse() {
   const gap = state.gap;
   const slots = getGapSlots();
-  const refSlot = slots.find((slot) => slot.id === gap.refSlotId) ?? slots[0] ?? null;
-  gap.refSlotId = refSlot?.id ?? null;
+  const official = gap.refSlotId === OFFICIAL_REF && gap.official ? gap.official : null;
+  const refSlot = official ? null : slots.find((slot) => slot.id === gap.refSlotId) ?? slots[0] ?? null;
+  gap.refSlotId = official ? OFFICIAL_REF : refSlot?.id ?? null;
   gap.course = null;
   gap.start = null;
+  gap.lateStarters = [];
+  gap.finish = null;
   gap.matches = new Map();
 
   if (slots.length < 2) {
     gap.status = 'tooFew';
     gap.picking = false;
   } else {
-    gap.course = buildCourse(refSlot.track.mapSamples);
-    if (gap.course) {
-      gap.start = gap.manualStart
-        ? snapToCourse(gap.course, gap.manualStart.lat, gap.manualStart.lon)
-        : findAutoStart(gap.course, slots.filter((slot) => slot !== refSlot).map((slot) => slot.track.mapSamples));
+    gap.course = buildCourse(official ? official.samples : refSlot.track.mapSamples);
+    if (gap.course && gap.manualStart) {
+      gap.start = snapToCourse(gap.course, gap.manualStart.lat, gap.manualStart.lon);
+    } else if (gap.course && official) {
+      // Start der Rennstrecke, ausser nicht alle kommen dort vorbei (Uhr zu spaet
+      // gestartet): dann die erste Stelle, an der alle dabei sind.
+      const samplesList = slots.map((slot) => slot.track.mapSamples);
+      gap.start = findAutoStart(gap.course, samplesList, { minKm: 0 });
+      if (gap.start && gap.start.km - gap.course.km[0] > OFFICIAL_START_TOLERANCE_KM) {
+        gap.lateStarters = findLateStarters(gap.course, samplesList, 0).map((index) => slots[index]);
+      }
+    } else if (gap.course) {
+      gap.start = findAutoStart(gap.course, slots.filter((slot) => slot !== refSlot).map((slot) => slot.track.mapSamples));
     }
     if (gap.start) {
       for (const slot of slots) {
@@ -634,20 +683,89 @@ function recomputeGapCourse() {
           gap.matches.set(slot.id, match);
         }
       }
+      gap.finish = chooseFinish(gap.course, gap.matches);
+      for (const match of gap.matches.values()) {
+        applyFinish(match, gap.finish.km);
+      }
     }
     gap.status = !gap.start ? 'noStart' : gap.matches.size < 2 ? 'noCross' : 'ok';
   }
 
   syncGapReferenceOptions();
   renderGapControls();
+  renderOfficialCourseLayer();
   renderGapBar();
 }
 
 function syncGapReferenceOptions() {
-  elements.gapReference.innerHTML = getGapSlots()
-    .map((slot) => `<option value="${slot.id}">${escapeHtml(getSlotDisplayName(slot))}</option>`)
-    .join('');
+  const { official } = state.gap;
+  const options = getGapSlots()
+    .map((slot) => `<option value="${slot.id}">${escapeHtml(getSlotDisplayName(slot))}</option>`);
+  if (official) {
+    options.push(`<option value="${OFFICIAL_REF}">${escapeHtml(t('gap.officialName', { name: official.name }))}</option>`);
+  }
+  options.push(`<option value="${OFFICIAL_LOAD}">${escapeHtml(t(official ? 'gap.officialReplace' : 'gap.officialLoad'))}</option>`);
+  elements.gapReference.innerHTML = options.join('');
   elements.gapReference.value = String(state.gap.refSlotId ?? '');
+}
+
+// Offizielle Rennstrecke laden und gleich als Referenz nehmen. Ein per Klick gesetzter
+// Startpunkt gehoert zur alten Referenz und wird verworfen.
+async function loadOfficialCourse(file) {
+  try {
+    const samples = parseCourseGpx(await file.arrayBuffer(), file.name);
+    state.gap.official = { name: file.name, samples };
+    state.gap.officialError = '';
+    state.gap.refSlotId = OFFICIAL_REF;
+    state.gap.manualStart = null;
+    recomputeGapCourse();
+    updateVisuals();
+    fitMapBounds();
+  } catch (error) {
+    console.error(error);
+    state.gap.officialError = t('gap.officialError', { message: error.message });
+    renderGapControls();
+  }
+}
+
+// Offizielle Strecken sind oft Routen ohne Zeitstempel (<rte>/<rtept>) oder Tracks ohne
+// <time>; parseGpx wuerde solche Punkte verwerfen. Hier zaehlt nur die Linie: Punkte in
+// Reihenfolge, km aus den Abstaenden. ZIP und .gz wie bei den Aktivitaeten.
+function parseCourseGpx(buffer, fileName) {
+  let name = fileName;
+  let bytes = new Uint8Array(buffer);
+  if (isZipBuffer(buffer)) {
+    ({ name, data: bytes } = extractActivityFromZip(buffer));
+  }
+  if (isGzipBytes(bytes)) {
+    ({ name, data: bytes } = gunzipActivity(bytes, name));
+  }
+
+  const document = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'application/xml');
+  const parseError = document.querySelector('parsererror');
+  if (parseError) {
+    throw new Error(t('err.gpxParse', { message: parseError.textContent?.trim() || t('err.invalidXml') }));
+  }
+
+  let nodes = Array.from(document.getElementsByTagName('trkpt'));
+  if (nodes.length < 2) {
+    nodes = Array.from(document.getElementsByTagName('rtept'));
+  }
+  const samples = [];
+  for (const node of nodes) {
+    const lat = Number(node.getAttribute('lat'));
+    const lon = Number(node.getAttribute('lon'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      continue;
+    }
+    const previous = samples[samples.length - 1];
+    const distance = previous ? previous.distance + haversineKm(previous.lat, previous.lon, lat, lon) : 0;
+    samples.push({ lat, lon, distance });
+  }
+  if (samples.length < 2) {
+    throw new Error(t('err.noCoursePoints', { name }));
+  }
+  return samples;
 }
 
 function renderGapControls() {
@@ -658,17 +776,36 @@ function renderGapControls() {
   elements.gapPickStart.textContent = gap.picking ? t('gap.pickCancel') : t('gap.pick');
   elements.mapFrame.classList.toggle('picking-start', gap.picking);
 
-  let hint = '';
-  if (gap.picking) {
-    hint = t('gap.picking');
-  } else if (gap.status === 'noStart') {
-    hint = t('gap.noStart');
-  } else if (gap.status === 'noCross') {
-    hint = t('gap.noCross');
-  } else if (gap.status === 'ok') {
-    hint = t(gap.manualStart ? 'gap.manual' : 'gap.auto', { km: formatNumber(gap.start.km, 2) });
+  const ref = t(gap.refSlotId === OFFICIAL_REF ? 'gap.refOfficial' : 'gap.refTrack');
+  const parts = [];
+  if (gap.officialError) {
+    parts.push(gap.officialError);
   }
-  elements.gapHint.textContent = hint;
+  if (gap.picking) {
+    parts.push(t('gap.picking'));
+  } else if (gap.status === 'noStart') {
+    parts.push(t('gap.noStart'));
+  } else if (gap.status === 'noCross') {
+    parts.push(t('gap.noCross'));
+  } else if (gap.status === 'ok') {
+    const km = formatNumber(gap.start.km, 2);
+    if (gap.lateStarters.length) {
+      parts.push(t(gap.lateStarters.length === 1 ? 'gap.startMovedOne' : 'gap.startMovedMany',
+        { km, names: formatNameList(gap.lateStarters) }));
+    } else {
+      parts.push(t(gap.manualStart ? 'gap.manual' : 'gap.auto', { km, ref }));
+    }
+    if (gap.finish?.moved) {
+      const early = gap.finish.early.map((id) => state.slots.find((slot) => slot.id === id)).filter(Boolean);
+      parts.push(t(early.length === 1 ? 'gap.finishMovedOne' : 'gap.finishMovedMany',
+        { km: formatNumber(gap.finish.km, 2), ref, names: formatNameList(early) }));
+    }
+  }
+  elements.gapHint.textContent = parts.join(' ');
+}
+
+function formatNameList(slots) {
+  return new Intl.ListFormat(LOCALE, { type: 'conjunction' }).format(slots.map((slot) => getSlotDisplayName(slot)));
 }
 
 function setStartLinePicking(picking) {
@@ -676,14 +813,28 @@ function setStartLinePicking(picking) {
   renderGapControls();
 }
 
+// Gesucht wird auf den Punkten der Referenzstrecke, egal ob Spur oder Rennstrecke.
 function handleStartLinePick(event) {
-  const refSlot = state.slots.find((slot) => slot.id === state.gap.refSlotId);
-  const nearest = refSlot?.track ? findNearestMapSample(refSlot.track, event.latlng) : null;
-  if (!nearest || nearest.pixelDistance > 30) {
+  const { course } = state.gap;
+  if (!course) {
     return;
   }
 
-  state.gap.manualStart = { lat: nearest.sample.lat, lon: nearest.sample.lon };
+  const clickPoint = state.map.latLngToLayerPoint(event.latlng);
+  let nearestIndex = -1;
+  let nearestDistance = Infinity;
+  for (let index = 0; index < course.lat.length; index++) {
+    const distance = clickPoint.distanceTo(state.map.latLngToLayerPoint([course.lat[index], course.lon[index]]));
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  }
+  if (nearestIndex < 0 || nearestDistance > 30) {
+    return;
+  }
+
+  state.gap.manualStart = { lat: course.lat[nearestIndex], lon: course.lon[nearestIndex] };
   setStartLinePicking(false);
   recomputeGapCourse();
   updateVisuals();
@@ -803,25 +954,69 @@ function renderGapBar() {
   }
 }
 
+// Startlinie: gestrichelter weisser Ring. Ziellinie: groesserer, durchgezogener Ring,
+// damit sie sich bei Rundkursen vom Start unterscheidet.
 function renderStartLineLayer() {
   clearMapLayer('startLine');
-  const { start } = state.gap;
-  if (!start) {
+  clearMapLayer('finishLine');
+  const { start, finish } = state.gap;
+  if (start) {
+    state.layers.startLine = L.circleMarker([start.lat, start.lon], {
+      radius: 10,
+      color: '#ffffff',
+      weight: 3,
+      dashArray: '4 3',
+      fill: false,
+      interactive: false,
+    }).addTo(state.map);
+  }
+  if (finish && state.gap.matches.size >= 2) {
+    state.layers.finishLine = L.circleMarker([finish.lat, finish.lon], {
+      radius: 14,
+      color: '#ffffff',
+      weight: 3,
+      opacity: 0.9,
+      fill: false,
+      interactive: false,
+    }).addTo(state.map);
+  }
+}
+
+// Die Rennstrecke liegt dezent unter den Spuren: sie wird nur bei Aenderungen neu
+// angelegt, die Spuren dagegen jeden Frame und landen damit darueber.
+function renderOfficialCourseLayer() {
+  clearMapLayer('officialCourse');
+  const points = getOfficialCoursePoints();
+  if (!points) {
     return;
   }
-
-  state.layers.startLine = L.circleMarker([start.lat, start.lon], {
-    radius: 10,
+  state.layers.officialCourse = L.polyline(points, {
     color: '#ffffff',
     weight: 3,
-    dashArray: '4 3',
-    fill: false,
+    opacity: 0.6,
+    dashArray: '6 6',
     interactive: false,
   }).addTo(state.map);
 }
 
+function getOfficialCoursePoints() {
+  const { official, refSlotId } = state.gap;
+  return official && refSlotId === OFFICIAL_REF && getGapSlots().length >= 2
+    ? official.samples.map((sample) => [sample.lat, sample.lon])
+    : null;
+}
+
 function getVideoGapProvider() {
   return elements.videoGaps.checked && state.gap.matches.size >= 2 ? buildGapItems : null;
+}
+
+// Rennstrecke und Start-/Zielring fuers Video, nur zusammen mit den Abstaenden.
+function getVideoCourse() {
+  if (!getVideoGapProvider()) {
+    return null;
+  }
+  const { start, finish } = state.gap;
+  return { points: getOfficialCoursePoints(), start, finish };
 }
 
 // ------------------------------ Video-Export ------------------------------
@@ -1083,6 +1278,7 @@ async function paintVideoPreview(loadMissing) {
       view: videoExportState.view,
       time: state.currentTime,
       gapsAt: getVideoGapProvider(),
+      course: getVideoCourse(),
       loadMissing,
       signal: controller.signal,
     });
@@ -1169,6 +1365,7 @@ async function runVideoExport() {
       fps: VIDEO_FPS,
       view: videoExportState.view,
       gapsAt: getVideoGapProvider(),
+      course: getVideoCourse(),
       signal: controller.signal,
       onProgress: ({ phase, ratio, text }) => {
         const mapped = phase === 'tiles' ? ratio * 0.1 : phase === 'render' ? 0.1 + ratio * 0.88 : 1;
@@ -2297,6 +2494,7 @@ function fitMapBounds() {
       points.push([sample.lat, sample.lon]);
     }
   }
+  points.push(...(getOfficialCoursePoints() ?? []));
 
   if (!points.length) {
     return;

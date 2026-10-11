@@ -10,7 +10,7 @@
 // Alles laeuft im Browser; ueber das Netz geht nur das einmalige Laden der
 // OSM-Kacheln fuer den festen Kartenausschnitt.
 
-import { t } from './i18n.js?v=14';
+import { t } from './i18n.js?v=15';
 
 const TILE_SIZE = 256;
 const MIN_ZOOM = 2;
@@ -395,33 +395,83 @@ function drawTracks(ctx, tracks, viewport, lineWidth) {
     }
 
     ctx.strokeStyle = track.color;
-    ctx.beginPath();
-    let lastX = 0;
-    let lastY = 0;
-    let skipped = false;
-    for (let index = 0; index < points.u.length; index++) {
-      const x = (points.u[index] - viewport.originU) * viewport.scale;
-      const y = (points.v[index] - viewport.originV) * viewport.scale;
-      if (index === 0) {
-        ctx.moveTo(x, y);
-      } else if (Math.abs(x - lastX) >= 0.6 || Math.abs(y - lastY) >= 0.6) {
-        // Punkte unter einem halben Pixel Abstand tragen nichts zum Bild bei.
-        ctx.lineTo(x, y);
-      } else {
-        skipped = true;
-        continue;
-      }
-      lastX = x;
-      lastY = y;
-      skipped = false;
-    }
-    if (skipped) {
-      const last = points.u.length - 1;
-      ctx.lineTo((points.u[last] - viewport.originU) * viewport.scale, (points.v[last] - viewport.originV) * viewport.scale);
-    }
+    tracePath(ctx, points, viewport);
     ctx.stroke();
   }
 
+  ctx.restore();
+}
+
+function tracePath(ctx, points, viewport) {
+  ctx.beginPath();
+  let lastX = 0;
+  let lastY = 0;
+  let skipped = false;
+  for (let index = 0; index < points.u.length; index++) {
+    const x = (points.u[index] - viewport.originU) * viewport.scale;
+    const y = (points.v[index] - viewport.originV) * viewport.scale;
+    if (index === 0) {
+      ctx.moveTo(x, y);
+    } else if (Math.abs(x - lastX) >= 0.6 || Math.abs(y - lastY) >= 0.6) {
+      // Punkte unter einem halben Pixel Abstand tragen nichts zum Bild bei.
+      ctx.lineTo(x, y);
+    } else {
+      skipped = true;
+      continue;
+    }
+    lastX = x;
+    lastY = y;
+    skipped = false;
+  }
+  if (skipped) {
+    const last = points.u.length - 1;
+    ctx.lineTo((points.u[last] - viewport.originU) * viewport.scale, (points.v[last] - viewport.originV) * viewport.scale);
+  }
+}
+
+// Offizielle Rennstrecke als Pseudo-Track (nur fuer Ausdehnung und Linie).
+function courseTrack(course) {
+  return course?.points?.length ? { mapSamples: course.points.map(([lat, lon]) => ({ lat, lon })) } : null;
+}
+
+// Wie auf der Karte: Rennstrecke dezent gestrichelt unter den Spuren, Startlinie als
+// gestrichelter Ring, Ziellinie als groesserer durchgezogener Ring.
+function drawCourseLine(ctx, track, viewport, lineWidth) {
+  if (!track) {
+    return;
+  }
+  const width = Math.max(1.5, lineWidth * 0.6);
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = width;
+  ctx.setLineDash([width * 2.5, width * 2.5]);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  tracePath(ctx, worldPoints(track), viewport);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawCourseRings(ctx, course, viewport) {
+  if (!course) {
+    return;
+  }
+  const unit = Math.min(viewport.width, viewport.height);
+  const radius = Math.max(6, Math.round(unit / 72));
+  const lineWidth = Math.max(2, Math.round(unit / 240));
+  ctx.save();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = lineWidth;
+  for (const [ring, size, dash] of [[course.start, radius, [lineWidth * 1.5, lineWidth]], [course.finish, radius * 1.4, []]]) {
+    if (!ring) {
+      continue;
+    }
+    const point = toPixel(ring.lat, ring.lon, viewport);
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -656,13 +706,16 @@ function drawAttribution(ctx, width, height) {
   ctx.restore();
 }
 
-async function paintBase(ctx, tracks, viewport, { loadMissing, onTileProgress, signal }) {
+async function paintBase(ctx, tracks, viewport, { course = null, loadMissing, onTileProgress, signal }) {
   const { width, height } = viewport;
   ctx.fillStyle = '#0b1626';
   ctx.fillRect(0, 0, width, height);
 
   const tiles = await drawTiles(ctx, viewport, { loadMissing, onProgress: onTileProgress, signal });
-  drawTracks(ctx, tracks, viewport, Math.max(3, Math.round(Math.min(width, height) / 180)));
+  const lineWidth = Math.max(3, Math.round(Math.min(width, height) / 180));
+  drawCourseLine(ctx, courseTrack(course), viewport, lineWidth);
+  drawTracks(ctx, tracks, viewport, lineWidth);
+  drawCourseRings(ctx, course, viewport);
   drawLegend(ctx, tracks, width, height);
   if (tiles.drawn > 0) {
     drawAttribution(ctx, width, height);
@@ -696,10 +749,11 @@ function drawMarkers(ctx, tracks, viewport, time) {
  * Viewport zurueck (die Oberflaeche braucht ihn zum Verschieben und Zoomen).
  * loadMissing=false: nur schon geladene Kacheln, ohne Netzwerk.
  */
-export async function renderPreview(canvas, { tracks, view, time, gapsAt = null, loadMissing, signal }) {
+export async function renderPreview(canvas, { tracks, view, time, gapsAt = null, course = null, loadMissing, signal }) {
   const drawable = tracks.filter((track) => track.mapSamples.length);
   const ctx = canvas.getContext('2d');
-  const bounds = collectWorldBounds(drawable);
+  const extra = courseTrack(course);
+  const bounds = collectWorldBounds(extra ? [...drawable, extra] : drawable);
   if (!bounds) {
     ctx.fillStyle = '#0b1626';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -707,7 +761,7 @@ export async function renderPreview(canvas, { tracks, view, time, gapsAt = null,
   }
 
   const viewport = computeViewport(view, bounds, canvas.width, canvas.height);
-  const tiles = await paintBase(ctx, drawable, viewport, { loadMissing, signal });
+  const tiles = await paintBase(ctx, drawable, viewport, { course, loadMissing, signal });
   signal?.throwIfAborted();
   drawMarkers(ctx, drawable, viewport, time);
   if (gapsAt) {
@@ -842,16 +896,18 @@ function repairAvcMeta(chunk, meta) {
  * @param {number} options.fps
  * @param {object} [options.view]     Kartenausschnitt (AUTO_VIEW = alle Tracks)
  * @param {(time: number) => Array|null} [options.gapsAt]  Abstandszeile je Zeitpunkt (null = keine)
+ * @param {{points: Array|null, start: object|null, finish: object|null}} [options.course]  Rennstrecke und Start-/Zielring
  * @param {(info: {phase: string, ratio: number, text: string}) => void} [options.onProgress]
  * @param {AbortSignal} [options.signal]
  */
-export async function exportVideo({ tracks, duration, speed, width, height, fps, view = AUTO_VIEW, gapsAt = null, onProgress, signal }) {
+export async function exportVideo({ tracks, duration, speed, width, height, fps, view = AUTO_VIEW, gapsAt = null, course = null, onProgress, signal }) {
   if (!isVideoExportSupported()) {
     throw new Error(t('video.err.noWebCodecs'));
   }
 
   const drawable = tracks.filter((track) => track.mapSamples.length);
-  const bounds = collectWorldBounds(drawable);
+  const extra = courseTrack(course);
+  const bounds = collectWorldBounds(extra ? [...drawable, extra] : drawable);
   if (!bounds) {
     throw new Error(t('video.err.noPositions'));
   }
@@ -868,6 +924,7 @@ export async function exportVideo({ tracks, duration, speed, width, height, fps,
   const viewport = computeViewport(view, bounds, width, height);
   const base = new OffscreenCanvas(width, height);
   const tiles = await paintBase(base.getContext('2d'), drawable, viewport, {
+    course,
     loadMissing: true,
     signal,
     onTileProgress: (done, total) => {

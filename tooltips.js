@@ -5,7 +5,7 @@
  * See the LICENSE file in the project root for the full license text.
  */
 
-import { LANG, t } from './i18n.js?v=14';
+import { LANG, t } from './i18n.js?v=15';
 
 // Kleine ?-Symbole mit Erklaerung. Im Markup steht nur
 //   <button type="button" class="help" data-help="offset">?</button>
@@ -71,7 +71,7 @@ const HELP_DE = {
       'Zeigt, wie weit die Marker gerade auseinander sind, sortiert nach ihrer Position auf der Strecke: der Vorderste links. Zwischen zwei Markern steht der Abstand in Kilometern und in Zeit.',
       'Die Kilometer werden entlang der Referenzstrecke gemessen, nicht über die Luftlinie und nicht über die Distanzzähler der Geräte, die auf langen Strecken einige hundert Meter auseinanderlaufen. Jede Position wird dazu auf die Linie der Referenzspur gelegt.',
       'Die Zeit ist der Rennabstand: wie lange es her ist, dass der Vordere an der Stelle war, an der der Hintere gerade ist.',
-      'Unter „Referenz“ wählst du, auf welcher Spur gemessen wird. Gezählt wird ab der Startlinie, siehe das ? neben den Startlinien-Knöpfen.',
+      'Unter „Referenz“ wählst du, auf welcher Spur gemessen wird. Gibt es eine offizielle Strecke des Rennens als GPX, lädst du sie mit „Offizielle Rennstrecke (GPX) …“; sie liegt dann gestrichelt auf der Karte. Gezählt wird ab der Startlinie, siehe das ? neben den Startlinien-Knöpfen.',
       'Ein karierter Punkt ist im Ziel (am Ende der Referenzstrecke). Der Abstand zum Nächsten dahinter bleibt dann auf dem Stand, den er bei der Ankunft hatte.',
       'Ein blasser Punkt am Ende ist eine Aktivität, die noch vor der Startlinie oder länger als eine Minute abseits der Referenzstrecke ist.',
     ],
@@ -80,7 +80,7 @@ const HELP_DE = {
     title: 'Startlinie',
     body: [
       'Ab der Startlinie werden die Abstände gezählt. Auf der Karte ist sie ein weißer, gestrichelter Ring.',
-      'Sie wird automatisch an die erste Stelle kurz nach dem Start gesetzt, an der alle Spuren eng beieinander liegen. Unter der Abstandszeile steht, bei welchem Kilometer der Referenz sie liegt.',
+      'Sie wird automatisch an die erste Stelle kurz nach dem Start gesetzt, an der alle Spuren eng beieinander liegen. Mit der offiziellen Rennstrecke ist es deren Start; kommt eine Aktivität dort nicht vorbei (Uhr zu spät gestartet), wird die Startlinie verschoben. Die Ziellinie (großer Ring) ist das Ende der Strecke; endet eine Aktivität kurz davor, wird sie vorgezogen. Unter der Abstandszeile steht, wo beide liegen und warum.',
       '„Startlinie wählen“ und danach ein Klick auf die Referenzspur legt sie selbst fest, Esc bricht ab. „Automatisch“ nimmt wieder die erkannte Stelle.',
       '„An Startlinie ausrichten“ setzt die Start-Offsets so, dass alle Aktivitäten im selben Moment über die Startlinie fahren. Das ersetzt das Ausprobieren von Hand.',
     ],
@@ -225,7 +225,7 @@ const HELP_EN = {
       'Shows how far apart the markers are right now, ordered by their position on the course: the leader on the left. Between two markers you see the gap in kilometres and in time.',
       'The kilometres are measured along the reference course, not as the crow flies and not with the devices’ distance counters, which drift apart by a few hundred metres on long rides. Each position is placed onto the line of the reference track.',
       'The time is the race gap: how long ago the one in front was at the spot where the one behind is now.',
-      'Under “Reference” you choose which track is measured along. Counting starts at the start line, see the ? next to the start line buttons.',
+      'Under “Reference” you choose which track is measured along. If the race provides an official course as GPX, load it with “Official race course (GPX) …”; it then shows as a dashed line on the map. Counting starts at the start line, see the ? next to the start line buttons.',
       'A checkered dot has finished (reached the end of the reference course). The gap to the next one behind then stays at its value on arrival.',
       'A faded dot at the end is an activity that is still before the start line or has been off the reference course for more than a minute.',
     ],
@@ -234,7 +234,7 @@ const HELP_EN = {
     title: 'Start line',
     body: [
       'The gaps are counted from the start line. On the map it is a white dashed ring.',
-      'It is set automatically at the first spot shortly after the start where all tracks run close together. The line below the gaps tells you at which kilometre of the reference it lies.',
+      'It is set automatically at the first spot shortly after the start where all tracks run close together. With the official race course it is the course start; if an activity does not pass there (watch started late), the start line moves. The finish line (large ring) is the end of the course; if an activity ends shortly before it, it moves back. The line below the gaps tells you where both lie and why.',
       '“Pick start line” followed by a click on the reference track sets it yourself; Esc cancels. “Automatic” goes back to the detected spot.',
       '“Align to start line” sets the start offsets so that all activities cross the start line at the same moment. This replaces adjusting them by hand.',
     ],

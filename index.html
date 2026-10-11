@@ -66,17 +66,17 @@
   ]
 }
   </script>
-  <script src="./lang.js?v=14"></script>
+  <script src="./lang.js?v=15"></script>
   <!--/lang:head-->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="icon" href="./favicon.svg?v=14" type="image/svg+xml">
-  <link rel="icon" href="./favicon-32.png?v=14" sizes="32x32" type="image/png">
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=14">
+  <link rel="icon" href="./favicon.svg?v=15" type="image/svg+xml">
+  <link rel="icon" href="./favicon-32.png?v=15" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=15">
   <meta name="theme-color" content="#07111d">
-  <link rel="stylesheet" href="./styles.css?v=14">
+  <link rel="stylesheet" href="./styles.css?v=15">
 </head>
 <body>
   <div class="backdrop backdrop-a"></div>
@@ -235,6 +235,8 @@
           </div>
           <div class="gap-controls">
             <label class="gap-reference"><span>Referenz</span><select id="gapReference"></select></label>
+            <input class="hidden" id="gapCourseFile" type="file" accept=".gpx,.zip,.gz">
+
             <button class="secondary-button skip-button" id="gapPickStart" type="button">Startlinie wählen</button>
             <button class="secondary-button skip-button hidden" id="gapAutoStart" type="button">Automatisch</button>
             <button class="secondary-button skip-button" id="gapAlign" type="button">An Startlinie ausrichten</button>
@@ -425,6 +427,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script type="module" src="./app.js?v=14"></script>
+  <script type="module" src="./app.js?v=15"></script>
 </body>
 </html>
