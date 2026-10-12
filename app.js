@@ -7,8 +7,8 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { gunzipSync, unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { LOCALE, t } from './i18n.js?v=16';
-import { initTooltips } from './tooltips.js?v=16';
+import { LOCALE, t } from './i18n.js?v=17';
+import { initTooltips } from './tooltips.js?v=17';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -22,7 +22,7 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=16';
+} from './video-export.js?v=17';
 import {
   applyFinish,
   buildCourse,
@@ -33,7 +33,7 @@ import {
   matchTrack,
   snapToCourse,
   timeWhenAtKm,
-} from './course-gap.js?v=16';
+} from './course-gap.js?v=17';
 
 const METRICS = [
   { key: 'heartRate', label: t('metric.hr'), unit: 'bpm', color: '#ff9f5c' },
@@ -173,6 +173,8 @@ const state = {
   duration: 0,
   lastFrame: null,
   map: null,
+  // Canvas-Ebene ueber den Linien fuer alle Marker (initMap).
+  markerRenderer: null,
   chart: null,
   // Pro Slot liegen die Layer am Slot selbst; global bleiben nur die beiden
   // Marker des Distanzfensters, die zu keiner einzelnen Datei gehoeren.
@@ -964,6 +966,7 @@ function renderStartLineLayer() {
   const { start, finish } = state.gap;
   if (start) {
     state.layers.startLine = L.circleMarker([start.lat, start.lon], {
+      renderer: state.markerRenderer,
       radius: 10,
       color: '#ffffff',
       weight: 3,
@@ -974,6 +977,7 @@ function renderStartLineLayer() {
   }
   if (finish && state.gap.matches.size >= 2) {
     state.layers.finishLine = L.circleMarker([finish.lat, finish.lon], {
+      renderer: state.markerRenderer,
       radius: 14,
       color: '#ffffff',
       weight: 3,
@@ -1447,6 +1451,13 @@ function initMap() {
     maxZoom: 19,
   }).addTo(state.map);
   state.map.on('click', handleMapDistanceSelectionClick);
+  // Alle Marker liegen in einer eigenen Ebene ueber den Linien. Die Spuren werden jeden
+  // Frame neu angelegt; in derselben Ebene wuerde die Linie der naechsten Datei den Marker
+  // der vorigen durchstreichen. Die Ebene laesst Klicks zur Karte durch.
+  const markerPane = state.map.createPane('trackMarkers');
+  markerPane.style.zIndex = '450';
+  markerPane.style.pointerEvents = 'none';
+  state.markerRenderer = L.canvas({ pane: 'trackMarkers' });
   initMapResize();
 }
 
@@ -2329,6 +2340,8 @@ function updateMapLayers() {
     const position = interpolatePosition(slot.track.mapSamples, getSlotTime(slot, state.currentTime));
     if (position) {
       slot.layers.marker = L.circleMarker([position.lat, position.lon], {
+        renderer: state.markerRenderer,
+        interactive: false,
         radius: 8,
         color,
         weight: 3,
@@ -2427,6 +2440,8 @@ function renderDistanceSelectionLayers() {
   const markerNames = ['distanceStartMarker', 'distanceEndMarker'];
   distanceInteraction.clicks.forEach((click, index) => {
     state.layers[markerNames[index]] = L.circleMarker(click.latlng, {
+      renderer: state.markerRenderer,
+      interactive: false,
       radius: 8,
       color: '#f4d35e',
       weight: 3,
@@ -2462,6 +2477,8 @@ function addHoverMapMarker(slot, time) {
   }
 
   slot.layers.hoverMarker = L.circleMarker([position.lat, position.lon], {
+    renderer: state.markerRenderer,
+    interactive: false,
     radius: 4,
     color: '#ffffff',
     weight: 1,
