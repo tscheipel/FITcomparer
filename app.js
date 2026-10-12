@@ -7,8 +7,8 @@
 
 import FitParser from 'https://esm.sh/fit-file-parser@3.0.2';
 import { gunzipSync, unzipSync } from 'https://esm.sh/fflate@0.8.2';
-import { LOCALE, t } from './i18n.js?v=15';
-import { initTooltips } from './tooltips.js?v=15';
+import { LOCALE, t } from './i18n.js?v=16';
+import { initTooltips } from './tooltips.js?v=16';
 import {
   ASPECTS,
   AUTO_VIEW,
@@ -22,7 +22,7 @@ import {
   setViewZoom,
   viewFromLatLngBounds,
   zoomView,
-} from './video-export.js?v=15';
+} from './video-export.js?v=16';
 import {
   applyFinish,
   buildCourse,
@@ -33,7 +33,7 @@ import {
   matchTrack,
   snapToCourse,
   timeWhenAtKm,
-} from './course-gap.js?v=15';
+} from './course-gap.js?v=16';
 
 const METRICS = [
   { key: 'heartRate', label: t('metric.hr'), unit: 'bpm', color: '#ff9f5c' },
@@ -525,6 +525,8 @@ function syncSlotChrome() {
   });
 
   elements.addFile.disabled = state.slots.length >= MAX_SLOTS;
+  const count = state.slots.length;
+  elements.fileCards.style.setProperty('--file-columns', String(count <= 3 ? count : count === 4 ? 2 : 3));
   syncGapReferenceOptions();
   refreshActivityComparison();
   updateVideoButton();
@@ -3171,6 +3173,8 @@ function updateProgress(slot, percent, phase) {
 
 function setStatus(slot, label, loading) {
   const track = slot.el.progressBar.closest('.file-progress-track');
+  // Leer zeigt die Karte keinen Status, er erscheint erst mit dem Laden.
+  slot.el.status.classList.remove('hidden');
   slot.el.status.textContent = label;
   slot.el.status.style.opacity = loading ? '0.75' : '1';
   track.classList.toggle('loading', loading);

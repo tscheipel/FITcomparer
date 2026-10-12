@@ -167,10 +167,12 @@ h1 {
   box-shadow: none;
 }
 
-/* Waechst mit der Anzahl der Dateien, statt auf zwei Spalten festgenagelt zu sein. */
+/* Spaltenzahl setzt syncSlotChrome (--file-columns): 2 -> 2, 3 -> 3, 4 -> 2x2, 5 -> 3+2,
+   6 -> 3+3. So steht keine Karte allein in einer Reihe, und keine wird zu schmal fuer
+   ihren Kopf. */
 .file-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  grid-template-columns: repeat(var(--file-columns, 2), minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -264,6 +266,47 @@ h1 {
   gap: 16px;
   align-items: flex-start;
   margin-bottom: 16px;
+}
+
+/* Kartenkopf: oben Kicker und Aktionen (Farbe, Status, x), darunter der Name ueber die
+   volle Breite. Der linke Container ist nur Huelle (display: contents); seine Kinder sind
+   die Grid-Zellen. Der Status kuerzt sich mit ..., statt aus der Karte zu ragen. */
+.card .card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "kicker actions" "name name";
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.card .card-header > div:first-child {
+  display: contents;
+}
+
+.card .card-header .kicker-row {
+  grid-area: kicker;
+  min-width: 0;
+  margin: 0;
+}
+
+.card .card-header .card-kicker {
+  white-space: nowrap;
+}
+
+.card .card-header .track-name {
+  grid-area: name;
+  width: 100%;
+}
+
+.card .card-header .card-header-actions {
+  grid-area: actions;
+  min-width: 0;
+}
+
+.card .card-header .badge {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-kicker {
@@ -1114,8 +1157,7 @@ summary.comparison-subhead::marker {
     grid-template-columns: 1fr;
   }
 
-  .section-header,
-  .card-header {
+  .section-header {
     flex-direction: column;
   }
 
@@ -1125,6 +1167,13 @@ summary.comparison-subhead::marker {
 
   .map-frame {
     height: 440px;
+  }
+}
+
+/* Drei Karten nebeneinander brauchen je ~300 px; darunter zwei Spalten. */
+@media (max-width: 900px) {
+  .file-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

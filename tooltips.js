@@ -5,7 +5,7 @@
  * See the LICENSE file in the project root for the full license text.
  */
 
-import { LANG, t } from './i18n.js?v=15';
+import { LANG, t } from './i18n.js?v=16';
 
 // Kleine ?-Symbole mit Erklaerung. Im Markup steht nur
 //   <button type="button" class="help" data-help="offset">?</button>

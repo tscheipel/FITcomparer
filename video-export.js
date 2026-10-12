@@ -10,7 +10,7 @@
 // Alles laeuft im Browser; ueber das Netz geht nur das einmalige Laden der
 // OSM-Kacheln fuer den festen Kartenausschnitt.
 
-import { t } from './i18n.js?v=15';
+import { t } from './i18n.js?v=16';
 
 const TILE_SIZE = 256;
 const MIN_ZOOM = 2;
